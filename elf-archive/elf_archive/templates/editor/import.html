@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty, status_badge %}
+{% block title %}Import from a spreadsheet{% endblock %}
+{% block content %}
+<h1>Import from a spreadsheet</h1>
+{% include "editor/_nav.html" %}
+<p class="lede">Upload a CSV file of one kind of record. You will see a preview with every problem before anything is created. Imported rows become submissions in the review queue; nothing is published until reviewed.</p>
+<ol class="small">
+  <li>Download the template for the kind of record, fill it in a spreadsheet program, and save as <strong>CSV UTF-8</strong> (this keeps Tigrinya and Arabic text intact).</li>
+  <li>Use the same formats as the contribution forms. Dates: <code>1952</code>, <code>1952-03</code>, <code>c. 1952</code>, <code>1950s</code>, <code>1950 to 1955</code>. References to other records: their permanent ID (for example <code>plc-abc12345</code>) or their exact name.</li>
+  <li>Several aliases in one cell: separate with <code>;</code>. Several sources: separate with <code>||</code>, each as <code>Title | page | URL</code>.</li>
+  <li>Only enter facts you can source. Leave unknown values empty.</li>
+</ol>
+<form method="post" enctype="multipart/form-data" class="stack card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="ik">Kind of record</label><select id="ik" name="kind">{% for k in kinds %}<option value="{{ k }}">{{ kind_label(k) }}</option>{% endfor %}</select></div>
+  <div class="field"><label for="if">CSV file (up to 5 MB, 2,000 rows)</label><input id="if" name="file" type="file" accept=".csv,text/csv" required></div>
+  <button class="btn" type="submit">Upload and preview</button>
+</form>
+<h2>Templates</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Kind</th><th scope="col">Columns</th><th scope="col"><span class="sr-only">Download</span></th></tr></thead>
+  <tbody>{% for k in kinds %}<tr><td>{{ kind_label(k) }}</td><td class="small"><code>{{ columns[k]|join(', ') }}</code></td><td><a href="/editor/import/template/{{ k }}.csv">Download</a></td></tr>{% endfor %}</tbody></table></div>
+<h2>Recent imports</h2>
+{% if recent %}<div class="table-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">File</th><th scope="col">Kind</th><th scope="col">Rows</th><th scope="col">Status</th><th scope="col">By</th></tr></thead>
+  <tbody>{% for i in recent %}<tr><td><a href="/editor/import/{{ i.id }}">{{ i.id }}</a></td><td>{{ i.filename or '—' }}</td><td>{{ kind_label(i.kind) }}</td><td>{{ i.valid_rows }} valid of {{ i.total_rows }}</td><td>{{ i.status }}{% if i.status == 'created' %} · <a href="/editor?tab=new&batch={{ i.id }}">in queue</a>{% endif %}</td><td>{{ i.username }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}{{ empty("No imports yet.") }}{% endif %}
+{% endblock %}

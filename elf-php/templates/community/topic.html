@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, pagination %}
+{% block title %}{{ t.title }}{% endblock %}
+{% block meta %}<link rel="canonical" href="{{ base_url }}/community/topics/{{ t.slug }}">{% endblock %}
+{% block robots %}{% if t.status == 'hidden' %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/community', _('Community')], ['/community/c/' ~ t.category_slug, _(t.category_title)], [request.path, t.title]]) }}
+<h1 dir="auto">{{ t.title }}</h1>
+<p class="small">{% if t.is_pinned %}<span class="badge">{{ _("Pinned") }}</span> {% endif %}{% if t.status == 'locked' %}<span class="badge">{{ _("Locked: no new replies") }}</span>{% elseif t.status == 'archived' %}<span class="badge">{{ _("Archived") }}</span>{% elseif t.status == 'hidden' %}<span class="badge badge--rejected">{{ _("Hidden from the public") }}</span>{% endif %}
+  <span class="muted">{{ _("Community discussion, not a verified archive record.") }}</span></p>
+{% if linked %}<p class="small">{{ _("About the archive record:") }} <a href="{{ record_url(linked.kind, linked.slug) }}" dir="auto">{{ linked.title }}</a></p>{% endif %}
+
+{% for p in rows %}
+<article class="post{% if p.status != 'visible' %} post--{{ p.status }}{% endif %}" id="post-{{ p.id }}">
+  <header class="post__head small">
+    {% if p.anonymized_at %}<strong>{{ _("Former member") }}</strong>{% else %}<a href="/community/users/{{ p.author_username }}" dir="auto"><strong>{{ p.author }}</strong></a>{% endif %}
+    <span class="muted">· <a class="muted" href="#post-{{ p.id }}">{{ p.created_at[:16]|replace({'T': ' '}) }}</a>{% if p.edited_at %} · {{ _("edited") }}{% endif %}</span>
+  </header>
+  {% if p.status == 'removed' and not mod %}<p class="muted"><em>{{ _("This post was removed by a moderator.") }}</em></p>
+  {% else %}
+    {% if p.status != 'visible' %}<p class="small flag">{{ p.status }}</p>{% endif %}
+    <div class="post__body" dir="auto">{{ render(p.body) }}</div>
+  {% endif %}
+  {% if mod and edits[p.id] %}<details class="small"><summary>{{ _("Earlier versions") }} ({{ edits[p.id]|length }})</summary>{% for ed in edits[p.id] %}<div class="post__body muted" dir="auto">{{ render(ed.previous_body) }}<span class="small">{{ ed.edited_at[:16] }}</span></div>{% endfor %}</details>{% endif %}
+  <footer class="post__foot small">
+    {% if can_edit(p, current_user) %}<a href="/community/posts/{{ p.id }}/edit">{{ _("Edit") }}</a> · {% endif %}
+    {% if current_user and p.status == 'visible' and p.author_id != current_user.id %}
+    <details class="inline-details"><summary>{{ _("Report") }}</summary>
+      <form method="post" action="/community/report" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="post_id" value="{{ p.id }}">
+        <div class="field"><label for="rc-{{ p.id }}">{{ _("What is wrong?") }}</label><select id="rc-{{ p.id }}" name="category">{% for k, l in report_categories %}<option value="{{ k }}">{{ _(l) }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="rr-{{ p.id }}">{{ _("Details (optional)") }}</label><textarea id="rr-{{ p.id }}" name="reason" rows="2" dir="auto"></textarea></div>
+        <button class="btn btn-small btn-secondary" type="submit">{{ _("Send report") }}</button></form></details>{% endif %}
+    {% if mod %}
+    <details class="inline-details"><summary>Moderate</summary>
+      <form method="post" action="/moderation/posts/{{ p.id }}" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+        <div class="field"><label for="ma-{{ p.id }}">Action</label><select id="ma-{{ p.id }}" name="action"><option value="hide">Hide</option><option value="remove">Remove (leave a placeholder)</option><option value="restore">Restore</option></select></div>
+        <div class="field"><label for="mr-{{ p.id }}">Reason (kept in the moderation log)</label><input id="mr-{{ p.id }}" name="reason" type="text" required></div>
+        <button class="btn btn-small" type="submit">Apply</button></form>
+      <form method="post" action="/moderation/users/{{ p.author_id }}" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="back" value="/community/topics/{{ t.slug }}#post-{{ p.id }}">
+        <div class="field"><label for="md-{{ p.id }}">Warn or pause the author's posting</label><select id="md-{{ p.id }}" name="days"><option value="0">Warning only</option><option value="1">Pause 1 day</option><option value="7">Pause 7 days</option><option value="30">Pause 30 days</option></select></div>
+        <div class="field"><label for="mu-{{ p.id }}">Reason (sent to the member)</label><input id="mu-{{ p.id }}" name="reason" type="text" required></div>
+        <button class="btn btn-small btn-secondary" type="submit">Send</button></form></details>{% endif %}
+  </footer>
+</article>
+{% endfor %}
+{{ pagination(page, total, per_page) }}
+
+{% if mod %}
+<details class="aside-box"><summary>Moderate this topic</summary>
+  <form method="post" action="/moderation/topics/{{ t.id }}" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label for="mt">Action</label><select id="mt" name="action">{% for a in ['lock', 'unlock', 'pin', 'unpin', 'archive', 'hide', 'restore'] %}<option value="{{ a }}">{{ a|capitalize }}</option>{% endfor %}</select></div>
+    <div class="field"><label for="mtr">Reason (kept in the moderation log)</label><input id="mtr" name="reason" type="text" required></div>
+    <button class="btn btn-small" type="submit">Apply</button></form></details>
+{% endif %}
+
+<section id="reply" aria-labelledby="reply-h">
+  <h2 id="reply-h">{{ _("Reply") }}</h2>
+  {% if t.status != 'open' %}<p class="muted">{{ _("This topic is closed to new replies.") }}</p>
+  {% elseif not current_user %}<p><a href="/auth/login?next={{ request.path }}">{{ _("Sign in to take part") }}</a></p>
+  {% elseif not can_post[0] %}<p class="muted">{{ _(can_post[1]) }}</p>
+  {% else %}
+  <form method="post" action="/community/topics/{{ t.slug }}/reply" class="stack">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label for="rb" class="sr-only">{{ _("Message") }}</label><textarea id="rb" name="body" rows="5" dir="auto" required></textarea>
+      <div class="help">{{ _("Plain text. Links are allowed (at most 3). Leave a blank line between paragraphs.") }}</div></div>
+    <button class="btn" type="submit">{{ _("Post reply") }}</button></form>
+  {% endif %}
+  <p class="small muted">{{ _("Has this discussion turned up something the archive should record? Propose it as a contribution, with your sources; an editor will review it.") }}
+    <a href="/how-to-contribute">{{ _("How to contribute") }}</a></p>
+</section>
+{% endblock %}

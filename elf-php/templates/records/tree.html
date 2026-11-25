@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, empty, fictional_notice %}
+{% block title %}{{ _("Family tree: {name}", name=title) }}{% endblock %}
+{% block meta %}<link rel="canonical" href="{{ base_url }}{{ record_url(kind, e.slug) }}/tree">
+<script src="{{ url_for('static', filename='js/graph.js') }}" defer></script>{% endblock %}
+{% block robots %}{% if e.is_fictional_test %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], [(kind == 'family' ? '/families' : '/people'), (kind == 'family' ? _('Families') : _('People'))],
+                [record_url(kind, e.slug), title], [request.path, _('Family tree')]]) }}
+{{ fictional_notice(e.is_fictional_test) }}
+<h1 dir="auto">{{ _("Family tree: {name}", name=title) }}</h1>
+<p class="lede">{{ _("Built only from published relationship records. Relationships need not be biological; each kind is drawn differently. People whose records are not public, such as living people without consent, are not shown.") }}</p>
+{% if kind == 'person' %}<p><a href="{{ record_url('person', e.slug) }}/connections">{{ _("See all documented connections of this person") }}</a></p>{% endif %}
+{% if tree %}
+<div class="graph" data-graph>
+  <div class="graph__tools" role="toolbar" aria-label="{{ _('Tree view controls') }}">
+    <button class="btn btn-small btn-secondary" type="button" data-zoom="in" aria-label="{{ _('Zoom in') }}">+</button>
+    <button class="btn btn-small btn-secondary" type="button" data-zoom="out" aria-label="{{ _('Zoom out') }}">−</button>
+    <button class="btn btn-small btn-secondary" type="button" data-zoom="fit">{{ _("Fit to screen") }}</button>
+    <span class="small muted graph__hint">{{ _("Drag to move, or use the arrow keys after selecting the tree.") }}</span>
+  </div>
+  <div class="graph__viewport" tabindex="0" aria-label="{{ _('Family tree diagram. The same information is listed below the diagram.') }}">
+  <svg viewBox="0 0 {{ tree.width }} {{ tree.height }}" width="{{ tree.width }}" height="{{ tree.height }}" class="graph__svg tree" role="img" aria-labelledby="tree-desc" data-w="{{ tree.width }}" data-h="{{ tree.height }}">
+    <desc id="tree-desc">{{ _("Family tree diagram. The same information is listed below the diagram.") }}</desc>
+    <g class="graph__layer">
+      {% for l in tree.lines %}<path class="{{ l.cls }}" d="{{ l.d }}"/>{% endfor %}
+      {% for n in tree.nodes %}
+      <a href="{{ record_url('person', n.slug) }}" class="tree-node{% if n.member %} tree-node--member{% endif %}{% if n.id == e.id %} tree-node--focus{% endif %}">
+        <title>{{ n.name }}{% if n.life %} ({{ n.life }}){% endif %}</title>
+        <rect x="{{ n.x }}" y="{{ n.y }}" width="{{ tree.node_w }}" height="{{ tree.node_h }}" rx="6"/>
+        <text x="{{ n.x + tree.node_w / 2 }}" y="{{ n.y + 22 }}" class="tree-node__name">{{ n.label }}</text>
+        {% if n.life %}<text x="{{ n.x + tree.node_w / 2 }}" y="{{ n.y + 40 }}" class="tree-node__life">{{ n.life }}</text>{% endif %}
+      </a>
+      {% endfor %}
+    </g>
+  </svg>
+  </div>
+  <ul class="graph-legend small" aria-label="{{ _('Legend') }}">
+    <li><svg width="36" height="10" aria-hidden="true"><path class="edge edge--parent_of" d="M0,5 H36"/></svg> {{ _("Parent and child") }}</li>
+    <li><svg width="36" height="10" aria-hidden="true"><path class="edge edge--adoptive_parent_of" d="M0,5 H36"/></svg> {{ _("Adoptive") }}</li>
+    <li><svg width="36" height="10" aria-hidden="true"><path class="edge edge--step_parent_of" d="M0,5 H36"/></svg> {{ _("Step-parent") }}</li>
+    <li><svg width="36" height="10" aria-hidden="true"><path class="edge edge--guardian_of" d="M0,5 H36"/></svg> {{ _("Guardian") }}</li>
+    <li><svg width="36" height="10" aria-hidden="true"><path class="edge edge--spouse_of" d="M0,5 H36"/></svg> {{ _("Spouse or partner") }}</li>
+    <li><svg width="36" height="10" aria-hidden="true"><path class="edge edge--sibling_of" d="M0,5 H36"/></svg> {{ _("Siblings") }}</li>
+    <li><svg width="36" height="10" aria-hidden="true"><path class="edge edge--disputed" d="M0,5 H36"/></svg> {{ _("Uncertain or disputed (also marked in the list)") }}</li>
+    {% if kind == 'family' %}<li><svg width="20" height="14" aria-hidden="true"><rect class="legend-member" x="1" y="1" width="18" height="12" rx="3"/></svg> {{ _("Listed as a member of this family") }}</li>{% endif %}
+  </ul>
+  {% if tree.truncated %}<p class="small muted">{{ _("This tree is large; only part of it is shown. Open a person to see their own tree.") }}</p>{% endif %}
+</div>
+
+<section aria-labelledby="gen-h">
+  <h2 id="gen-h">{{ _("By generation") }}</h2>
+  <p class="small muted">{{ _("Generations are worked out from parent and child relationships only. People without documented parents are placed beside their relatives.") }}</p>
+  <ol class="plain-list">{% for row in tree.generations %}<li><strong>{{ _("Generation {n}", n=loop.index) }}:</strong>
+    {% for n in row %}<a href="{{ record_url('person', n.slug) }}" dir="auto">{{ n.name }}</a>{% if n.life %} <span class="small muted">({{ n.life }})</span>{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}</li>{% endfor %}</ol>
+</section>
+<section aria-labelledby="rel-h">
+  <h2 id="rel-h">{{ _("Relationships") }}</h2>
+  {% if tree.table %}
+  <div class="table-wrap"><table><caption class="sr-only">{{ _("Relationships") }}</caption>
+    <thead><tr><th scope="col">{{ _("Person") }}</th><th scope="col">{{ _("Relationship") }}</th><th scope="col">{{ _("Person") }}</th><th scope="col">{{ _("Status") }}</th><th scope="col">{{ _("Dates") }}</th></tr></thead>
+    <tbody>{% for r in tree.table %}<tr><td><a href="{{ record_url('person', r.a.slug) }}" dir="auto">{{ r.a.name }}</a></td><td>{{ _(r.label) }}</td>
+      <td><a href="{{ record_url('person', r.b.slug) }}" dir="auto">{{ r.b.name }}</a></td><td>{{ _(r.status|capitalize) }}</td>
+      <td>{{ (r.period_precision != 'unknown' ? fdate(r.period_start, r.period_end, r.period_precision) : '—') }}</td></tr>{% endfor %}</tbody></table></div>
+  {% else %}<p class="muted">{{ _("No relationships between these people have been published yet.") }}</p>{% endif %}
+</section>
+{% else %}
+  {{ empty(_("No family tree can be drawn yet: no published relationships or members with public profiles."), record_url(kind, e.slug), _("Back to the record")) }}
+{% endif %}
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}Collections{% endblock %}
+{% block content %}
+<h1>Collections</h1>
+{% include "editor/_nav.html" %}
+<p class="lede">Group archive items into curated collections. A public collection shows only the items that are themselves public.</p>
+{% if rows %}
+<div class="table-wrap"><table><thead><tr><th scope="col">Collection</th><th scope="col">Items</th><th scope="col">Access</th><th scope="col">Featured</th></tr></thead>
+  <tbody>{% for r in rows %}<tr><td><a href="/editor/records/{{ r.public_id }}">{{ r.title }}</a></td><td>{{ r.n }}</td><td>{{ r.visibility }}</td><td>{{ (r.is_featured ? 'yes' : '') }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}{{ empty("No collections yet.") }}{% endif %}
+<h2>New collection</h2>
+<form method="post" class="stack card">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="ct">Title</label><input id="ct" name="title" type="text" required></div>
+  <div class="field"><label for="cd">Description</label><textarea id="cd" name="description" rows="4" dir="auto"></textarea></div>
+  <div class="field"><label for="cr">Rights note</label><textarea id="cr" name="rights_note" rows="2"></textarea></div>
+  <div class="field"><label for="cv">Who can see it</label><select id="cv" name="visibility"><option value="public">Public</option><option value="restricted">Restricted (staff only)</option></select></div>
+  <div class="check"><input type="checkbox" id="cf" name="is_featured" value="1"><label for="cf">Feature it on the home page</label></div>
+  <button class="btn" type="submit">Create collection</button>
+</form>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, citations_block, accounts_block, record_footer, photos_block %}
+{% block title %}{{ p.primary_name }}{% endblock %}
+{% block meta %}<meta name="description" content="{{ ((p.overview ?: (_('Place record: {name}', name=p.primary_name))))[:160] }}">
+<link rel="canonical" href="{{ base_url }}{{ record_url('place', e.slug) }}">
+{% if p.latitude is not none %}<link rel="stylesheet" href="{{ url_for('static', filename='vendor/maplibre/maplibre-gl.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/locpick.css') }}">
+<script src="{{ url_for('static', filename='js/basemap.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/placemap.js') }}" defer></script>{% endif %}{% endblock %}
+{% block robots %}{% if e.is_fictional_test %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/places', _('Places')], [request.path, p.primary_name]]) }}
+{% with {kicker: _('Place') ~ ((ptype ? ' · ' ~ _(ptype.label) : '')), title: p.primary_name, original: p.original_name, original_lang: null} %}{% include "records/_head.html" %}{% endwith %}
+<div class="two-col">
+  <div>
+    {% if p.latitude is not none %}
+    {% set prec_text = {'exact': _("Documented location"), 'approximate': _("Approximate location: this is not an established exact point."),
+                        'region_centroid': _("Shown at the centre of its region: the exact location is not documented.")} %}
+    <figure class="place-map locpick" id="place-map" hidden
+            data-id="{{ e.public_id }}" data-name="{{ p.primary_name }}" data-lat="{{ p.latitude }}" data-lon="{{ p.longitude }}" data-precision="{{ p.coord_precision }}"
+            data-lib="{{ url_for('static', filename='vendor/maplibre/maplibre-gl-csp.js') }}"
+            data-worker="{{ url_for('static', filename='vendor/maplibre/maplibre-gl-csp-worker.js') }}"
+            data-terrain="{{ url_for('static', filename='map/terrain') }}"
+            data-tile='{{ ((config.MAP_TILE_URL ?: ""))|tojson }}' data-tile-attribution='{{ ((config.MAP_TILE_ATTRIBUTION ?: ""))|tojson }}'
+            data-i18n='{{ {"maplabel": _("Map of {name} and other places in the archive. Use the arrow keys to move and + and − to zoom.", name=p.primary_name),
+                           "attribution": _("Base map: Natural Earth (public domain). Modern borders and regions only."),
+                           "nowebgl": _("Your browser cannot show the map here. The coordinates are given below."),
+                           "error": _("The map could not be loaded. The coordinates are given below."),
+                           "exact": prec_text.exact, "approximate": prec_text.approximate, "region_centroid": prec_text.region_centroid}|tojson }}'>
+      <div class="place-map__map"></div>
+      <figcaption class="place-map__caption">
+        <span class="place-map__key place-map__key--{{ p.coord_precision }}" aria-hidden="true"></span>
+        <span>{{ prec_text[p.coord_precision] }}</span>
+        <a href="/map?place={{ e.public_id }}">{{ _("Open in the historical atlas") }}</a>
+      </figcaption>
+    </figure>
+    {% endif %}
+    <dl class="meta" aria-label="{{ _('Location') }}">
+      {% if p.admin_region %}<dt>{{ _("Region") }}</dt><dd dir="auto">{{ p.admin_region }}</dd>{% endif %}
+      {% if p.country %}<dt>{{ _("Country") }}</dt><dd dir="auto">{{ p.country }}</dd>{% endif %}
+      <dt>{{ _("Coordinates") }}</dt>
+      <dd>{% if p.latitude is not none %}<span dir="ltr">{{ '%.4f'|format(p.latitude) }}, {{ '%.4f'|format(p.longitude) }}</span>
+          <span class="badge {{ (p.coord_precision != 'exact' ? 'ev-hypothesis' : '') }}">{{ _(p.coord_precision|replace({'_': ' '})|capitalize) }}</span>
+          {% if p.coord_precision != 'exact' %}<div class="small muted">{{ _("This location is not an established exact point.") }}</div>{% endif %}
+        {% else %}{{ _("Not documented") }}{% endif %}
+        {% if p.coord_note %}<div class="small" dir="auto">{{ p.coord_note }}</div>{% endif %}</dd>
+    </dl>
+    <section aria-labelledby="ov-h">
+      <h2 id="ov-h">{{ _("Historical overview") }}</h2>
+      {% if p.overview %}<div class="prose" dir="auto">{{ p.overview }}</div>{% else %}<p class="muted">{{ _("Not yet documented.") }}</p>{% endif %}
+    </section>
+    {{ photos_block(photos) }}
+    <section aria-labelledby="pev-h">
+      <h2 id="pev-h">{{ _("Events at this place") }}</h2>
+      {% if events %}<ul class="plain-list">{% for ev in events %}<li><a href="{{ record_url('event', ev.slug) }}" dir="auto">{{ ev.title }}</a> <span class="small muted">{{ fdate(ev.date_start, ev.date_end, ev.date_precision) }}</span>{% if ev.is_uncertain %} <span class="badge ev-hypothesis">{{ _("Location uncertain") }}</span>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ _("No events have been linked to this place.") }}</p>{% endif %}
+    </section>
+    <section aria-labelledby="ppl-h">
+      <h2 id="ppl-h">{{ _("People associated with this place") }}</h2>
+      {% if people %}<ul class="plain-list">{% for x in people %}<li><a href="{{ record_url('person', x.slug) }}" dir="auto">{{ x.preferred_name }}</a> <span class="small muted">{{ (x.born ? _('Born here') : '') }}{{ (x.born and x.died ? ' · ' : '') }}{{ (x.died ? _('Died here') : '') }}</span></li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ _("No published people are linked to this place.") }}</p>{% endif %}
+    </section>
+    {{ accounts_block(accts) }}
+    {{ citations_block(cites) }}
+  </div>
+  <aside>{{ record_footer(e, revisions) }}</aside>
+</div>
+{% endblock %}

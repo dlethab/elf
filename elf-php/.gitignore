@@ -1,0 +1,6 @@
+# local data and builds: never committed or uploaded
+/instance/*
+!/instance/.htaccess
+/dist/
+/.env
+/tools/php/

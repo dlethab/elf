@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, record_footer %}
+{% block title %}{{ s.title }}{% endblock %}
+{% block meta %}<link rel="canonical" href="{{ base_url }}{{ record_url('source', e.slug) }}">{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/sources', _('Sources')), (request.path, s.title)]) }}
+{% with kicker=_('Source') ~ ' · ' ~ _(s.source_type.replace('_', ' ')|capitalize), title=s.title, original=None %}{% include "records/_head.html" %}{% endwith %}
+<div class="two-col">
+  <div>
+    <dl class="meta">
+      {% for label, val in [(_('Author or creator'), s.creator), (_('Publisher'), s.publisher), (_('Date'), s.pub_date_text), (_('Repository'), s.repository),
+                            (_('Identifier'), s.identifier), (_('Language'), s.language), (_('Provenance'), s.provenance), (_('Rights'), s.rights_note),
+                            (_('Reliability notes'), s.reliability_note)] %}
+        {% if val %}<dt>{{ label }}</dt><dd dir="auto">{{ val }}</dd>{% endif %}
+      {% endfor %}
+      {% if s.url %}<dt>{{ _("Online") }}</dt><dd><a href="{{ s.url }}" rel="nofollow noopener noreferrer" dir="ltr">{{ s.url }}</a>{% if s.accessed_on %} ({{ _("accessed {date}", date=s.accessed_on) }}){% endif %}</dd>{% endif %}
+    </dl>
+    <section aria-labelledby="cb-h">
+      <h2 id="cb-h">{{ _("Records citing this source") }}</h2>
+      {% if cited_by %}<ul class="plain-list">{% for c in cited_by %}<li>{{ kind_label(c.kind) }}: <a href="{{ c.url }}" dir="auto">{{ c.title }}</a>{% if c.locator %} <span class="small muted" dir="auto">({{ c.locator }})</span>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ _("No public records cite this source yet.") }}</p>{% endif %}
+    </section>
+  </div>
+  <aside>{{ record_footer(e, revisions) }}</aside>
+</div>
+{% endblock %}

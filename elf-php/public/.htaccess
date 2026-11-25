@@ -1,0 +1,38 @@
+# Apache: send every request that is not an existing file to index.php.
+# The document root must be this "public" folder; everything else in the project stays outside the web.
+Options -Indexes -MultiViews
+DirectoryIndex index.php
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  # files that exist (styles, scripts, map tiles) are served directly by Apache
+  RewriteCond %{REQUEST_FILENAME} -f
+  RewriteRule ^ - [L]
+  RewriteRule ^ index.php [L,QSA]
+</IfModule>
+
+# The same caching and safety headers the application sends for /static/ when it serves them itself.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|png|json|txt)$">
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Cache-Control "public, max-age=3600"
+  </FilesMatch>
+  <If "%{REQUEST_URI} =~ m#^/static/map/terrain/#">
+    Header always set Cache-Control "public, max-age=2592000"
+  </If>
+  # addresses with ?v=… change whenever the file changes, so they can be kept for a year
+  <If "%{QUERY_STRING} =~ /(^|&)v=/">
+    Header always set Cache-Control "public, max-age=31536000, immutable"
+  </If>
+</IfModule>
+
+# Never serve hidden files (.env copies, editor backups) or PHP files other than the front controller.
+<FilesMatch "^\.">
+  Require all denied
+</FilesMatch>
+<FilesMatch "\.php$">
+  Require all denied
+</FilesMatch>
+<Files "index.php">
+  Require all granted
+</Files>

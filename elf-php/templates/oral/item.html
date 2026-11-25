@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, citations_block, record_footer %}
+{% block title %}{{ oh.title }}{% endblock %}
+{% block meta %}<meta name="description" content="{{ ((oh.summary ?: oh.title))[:160] }}">
+<link rel="canonical" href="{{ base_url }}{{ record_url('oral_history', e.slug) }}">
+<script src="{{ url_for('static', filename='js/oral.js') }}" defer></script>{% endblock %}
+{% block robots %}{% if (e.is_fictional_test ?: research) %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/oral-histories', _('Oral Histories')], [request.path, oh.title]]) }}
+{% if research %}<div class="notice"><p><strong>{{ _("Restricted material: research access.") }}</strong> {{ _("This interview is not public. You can see it because you have researcher access and the interviewee agreed to research use. This view has been logged. Do not copy or share it without permission.") }}</p></div>{% endif %}
+{% with {kicker: _('Oral history'), title: oh.title, original: null} %}{% include "records/_head.html" %}{% endwith %}
+<div class="two-col">
+  <div>
+    {% if oh.summary %}<p class="lede" dir="auto">{{ oh.summary }}</p>{% endif %}
+    <dl class="meta">
+      <dt>{{ _("Interviewee") }}</dt><dd>{% if interviewee %}<a href="{{ record_url('person', interviewee_slug) }}" dir="auto">{{ interviewee }}</a>{% elseif oh.interviewee_text %}<span dir="auto">{{ oh.interviewee_text }}</span>{% else %}{{ _("Not documented") }}{% endif %}</dd>
+      {% if oh.interviewer_text %}<dt>{{ _("Interviewer") }}</dt><dd dir="auto">{{ oh.interviewer_text }}</dd>{% endif %}
+      <dt>{{ _("Recorded") }}</dt><dd>{{ fdate(oh.recorded_start, oh.recorded_end, oh.recorded_precision) }}{% if oh.recording_location_note %} · <span dir="auto">{{ oh.recording_location_note }}</span>{% endif %}</dd>
+      {% if oh.language %}<dt>{{ _("Language") }}</dt><dd dir="auto">{{ oh.language }}</dd>{% endif %}
+      {% if oh.topics %}<dt>{{ _("Topics") }}</dt><dd dir="auto">{{ oh.topics|replace({'\n': '; '}) }}</dd>{% endif %}
+    </dl>
+    {% if ok.embargoed and not research %}<div class="notice notice--info"><p>{{ _("The recording and transcript are under embargo until {date}, at the interviewee's request or to protect people mentioned.", date=oh.embargo_until) }}</p></div>{% endif %}
+
+    <section aria-labelledby="rec-h">
+      <h2 id="rec-h">{{ _("Recording") }}</h2>
+      {% if media and show.recording %}
+        {% if media.media_kind == 'audio' %}<audio class="player" id="oh-player" controls preload="metadata" src="{{ media_url((media.d ?: media.o)) }}"></audio>
+        {% else %}<video class="player" id="oh-player" controls preload="metadata" src="{{ media_url((media.d ?: media.o)) }}"></video>{% endif %}
+        {% if show.download %}<p class="small"><a href="{{ media_url((media.d ?: media.o)) }}" download>{{ _("Download the recording") }}</a></p>
+        {% else %}<p class="small muted">{{ _("The interviewee has not agreed to downloads or reuse. Please listen here and cite this page.") }}</p>{% endif %}
+      {% else %}<p class="muted">{{ _("The recording is not available to the public.") }}</p>{% endif %}
+    </section>
+
+    <section aria-labelledby="tr-h">
+      <h2 id="tr-h">{{ _("Transcript") }}</h2>
+      {% if show.transcript and oh.transcript_text %}
+        <p class="small">{% if oh.transcript_kind == 'machine_draft' and not oh.transcript_reviewed %}<span class="badge ev-unverified">{{ _("Automatic transcription: draft, not yet checked") }}</span>
+          {% elseif oh.transcript_kind %}{{ {'verbatim': _('Verbatim transcript'), 'edited': _('Edited for reading'), 'translation': _('This transcript is a translation, not the original words'), 'machine_draft': _('Automatic transcription, checked by an editor')}[oh.transcript_kind] }}{% endif %}
+          {% if oh.redaction_notes %} · {{ _("Some passages have been removed to protect privacy or at the interviewee's request.") }}{% endif %}</p>
+        <div class="field transcript-search" hidden><label for="ts-q">{{ _("Search this transcript") }}</label><input id="ts-q" type="search" dir="auto" autocomplete="off"><span class="small muted" id="ts-count" aria-live="polite"></span></div>
+        <div class="transcript" id="transcript" dir="auto">
+          {% for l in lines %}<p class="transcript__line">{% if l.t is not none %}<a class="stamp" href="#t={{ l.t }}" data-seek="{{ l.t }}" dir="ltr">{{ l.stamp }}</a> {% endif %}{{ l.text }}</p>{% endfor %}
+        </div>
+      {% elseif oh.transcript_text %}<p class="muted">{{ _("A transcript exists but the interviewee has not agreed to its publication.") }}</p>
+      {% else %}<p class="muted">{{ _("No transcript is available.") }}</p>{% endif %}
+    </section>
+
+    {% if oh.translation_text and show.translation %}
+    <section aria-labelledby="tl-h">
+      <h2 id="tl-h">{{ _("Translation") }}{% if oh.translation_language %} ({{ oh.translation_language }}){% endif %}</h2>
+      <p class="small"><span class="badge {{ (oh.translation_kind != 'human_reviewed' ? 'ev-unverified' : '') }}">{{ ({'human_reviewed': _('Translated by a person and checked'), 'human_unreviewed': _('Translated by a person, not yet checked'), 'machine_draft': _('Automatic translation: draft, not checked')}[oh.translation_kind] ?? _('Translation')) }}</span>
+        {{ _("The original words above are authoritative; this translation does not replace them.") }}</p>
+      <div class="transcript" dir="auto">{{ oh.translation_text }}</div>
+    </section>{% endif %}
+
+    {% if subjects %}<section aria-labelledby="rel-h"><h2 id="rel-h">{{ _("Related records") }}</h2>
+      <ul class="plain-list">{% for s in subjects %}<li>{{ kind_label(s.kind) }}: <a href="{{ record_url(s.kind, s.slug) }}" dir="auto">{{ s.title }}</a></li>{% endfor %}</ul></section>{% endif %}
+    {{ citations_block(cites) }}
+  </div>
+  <aside>
+    <section class="aside-box" aria-labelledby="perm-h"><h2 id="perm-h">{{ _("Permissions") }}</h2>
+      <p class="small">{{ _("What the interviewee has agreed to:") }}</p>
+      <ul class="plain-list small consent-list">
+        {% for t, row in consents %}<li><span aria-hidden="true">{{ (row and row.granted ? '✓' : '✕') }}</span>
+          {{ _(CONSENT_LABELS[t]) }}: <strong>{{ (row and row.granted ? _("yes") : _("no")) }}</strong></li>{% endfor %}</ul>
+      <p class="small muted">{{ _("To quote or reuse this interview beyond what is listed, contact the archive.") }}</p>
+    </section>
+    {{ record_footer(e, revisions) }}
+  </aside>
+</div>
+{% endblock %}

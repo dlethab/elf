@@ -1,0 +1,28 @@
+{% extends "pages/_info.html" %}
+{% block body %}
+<p class="lede">{{ _("Anyone with a verified account can propose new records, photographs, documents, recordings and corrections. Nothing you submit is published until an editor has reviewed it.") }}</p>
+<h2>{{ _("What you can contribute") }}</h2>
+<ul>
+  <li>{{ _("A person, family, place, event, organization or source record") }}</li>
+  <li>{{ _("Links between records: a person's affiliation with an organization, or a participant in an event") }}</li>
+  <li>{{ _("Photographs, scanned documents, PDF documents and audio or video recordings, attached to any of these") }}</li>
+  <li>{{ _("An oral history interview you have recorded, with the interviewee's consent") }}</li>
+  <li>{{ _("A correction to any published record, or a photo of it (use “Suggest a correction or add a photo” on the record page)") }}</li>
+  <li>{{ _("Family members and relationships, if an editor has made you a representative of that family") }}</li>
+</ul>
+<h2>{{ _("How review works") }}</h2>
+<ol>
+  <li>{{ _("You save a draft and edit it as often as you like. This is also when you add photos and files.") }}</li>
+  <li>{{ _("You submit it. You can still withdraw it before a decision.") }}</li>
+  <li>{{ _("An editor reviews it, and may ask you for changes or more evidence. You will see their message on your dashboard.") }}</li>
+  <li>{{ _("When approved, an editor publishes it. Only then does it appear on the site and in search.") }}</li>
+</ol>
+<h2>{{ _("Good contributions") }}</h2>
+<ul>
+  <li>{{ _("Say how you know: cite books, records, documents, or say that it is your own testimony or a family recollection.") }}</li>
+  <li>{{ _("Leave a field blank rather than guess. Approximate dates are welcome when marked as approximate.") }}</li>
+  <li>{{ _("Do not include private contact details, home addresses, or information about living people without their consent.") }}</li>
+  <li>{{ _("Only upload material you have the right to share, and describe its rights honestly.") }}</li>
+</ul>
+<p class="row">{% if current_user %}<a class="btn" href="/dashboard">{{ _("Go to your dashboard") }}</a>{% else %}<a class="btn" href="/auth/register">{{ _("Create an account") }}</a> <a href="/auth/login">{{ _("Sign in") }}</a>{% endif %}</p>
+{% endblock %}

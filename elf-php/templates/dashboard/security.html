@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% block title %}{{ _("Two-step sign-in") }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>{{ _("Two-step sign-in") }}</h1>
+{% include "dashboard/_nav.html" %}
+<p class="lede">{{ _("After your password, the archive asks for a code from an authenticator app on your phone (for example Google Authenticator, Microsoft Authenticator, Aegis or 2FAS). Someone who learns your password still cannot sign in.") }}</p>
+{% if required and not enabled %}<div class="notice"><p>{{ _("Your role requires two-step sign-in.") }}</p></div>{% endif %}
+{% if error %}<div class="notice notice--error" role="alert"><p>{{ _(error) }}</p></div>{% endif %}
+{% if codes %}
+<section class="aside-box" aria-labelledby="rc-h"><h2 id="rc-h">{{ _("Your recovery codes") }}</h2>
+  <p class="small">{{ _("Each code works once, if you lose your phone. Write them down or print them and keep them somewhere safe. They will not be shown again.") }}</p>
+  <ul class="codes" dir="ltr">{% for c in codes %}<li><code>{{ c }}</code></li>{% endfor %}</ul></section>
+{% endif %}
+{% if enabled %}
+  <p><strong>{{ _("Two-step sign-in is on.") }}</strong> {{ _("Recovery codes left: {n}", n=remaining) }}</p>
+  <form method="post" class="stack card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label for="pw">{{ _("Your password") }}</label><input id="pw" name="password" type="password" autocomplete="current-password" required></div>
+    <div class="row"><button class="btn btn-secondary" type="submit" name="op" value="codes">{{ _("Make new recovery codes") }}</button>
+      {% if not required %}<button class="btn btn-danger" type="submit" name="op" value="disable" data-confirm="{{ _('Turn off two-step sign-in?') }}">{{ _("Turn off") }}</button>{% endif %}</div>
+  </form>
+{% elseif setup %}
+  <ol>
+    <li>{{ _("Open your authenticator app and add an account by scanning this code:") }}<br><img class="qr" src="{{ qr }}" alt="{{ _('QR code for your authenticator app') }}" width="200" height="200"></li>
+    <li>{{ _("Or type this key into the app:") }} <code dir="ltr" class="secret">{{ setup }}</code></li>
+    <li>{{ _("Enter the 6-digit code the app shows:") }}</li>
+  </ol>
+  <form method="post" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="op" value="confirm">
+    <div class="field"><label for="code">{{ _("Code") }}</label><input id="code" name="code" type="text" inputmode="numeric" autocomplete="one-time-code" dir="ltr" required></div>
+    <button class="btn" type="submit">{{ _("Turn on two-step sign-in") }}</button></form>
+{% else %}
+  <form method="post"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="op" value="start">
+    <button class="btn" type="submit">{{ _("Set up two-step sign-in") }}</button></form>
+{% endif %}
+{% endblock %}

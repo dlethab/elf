@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, status_badge %}
+{% block title %}User: {{ u.username }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/admin', 'Administration'], ['/admin/users', 'Users'], [request.path, u.username]]) }}
+<h1>{{ u.display_name }}</h1>
+<dl class="meta"><dt>Username</dt><dd>{{ u.username }}</dd><dt>Email</dt><dd>{{ u.email }}{% if not u.email_verified_at %} (not verified){% endif %}</dd>
+  <dt>State</dt><dd>{% if u.anonymized_at %}Anonymised {{ u.anonymized_at[:10] }}{% elseif not u.is_active %}Deactivated {{ ((u.deactivated_at ?: ''))[:10] }}{% else %}Active{% endif %}</dd>
+  <dt>Joined</dt><dd>{{ u.created_at[:10] }}</dd>
+  <dt>Two-step sign-in</dt><dd>{{ (u.totp_enabled_at ? 'On since ' ~ u.totp_enabled_at[:10] : 'Off') }}</dd>
+  <dt>Submissions</dt><dd>{% for s in subs %}{{ status_badge(s.status) }} {{ s.n }} {% else %}None{% endfor %}</dd></dl>
+
+<div class="two-col"><div>
+<h2>Roles</h2>
+<p class="small muted">Every active account is a contributor. Moderators cannot review archive submissions; editors cannot manage users. All changes are logged.</p>
+<div class="table-wrap"><table><thead><tr><th scope="col">Role</th><th scope="col">Held</th><th scope="col">Change</th></tr></thead><tbody>
+{% for r in all_roles %}<tr><td>{{ r|capitalize }}</td><td>{{ (r in roles ? 'Yes' : 'No') }}</td><td>
+  {% if not u.anonymized_at %}<form method="post" action="/admin/users/{{ u.id }}/roles" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="role" value="{{ r }}">
+  <input type="hidden" name="action" value="{{ (r in roles ? 'revoke' : 'grant') }}"><button class="btn btn-small btn-secondary" type="submit" {% if r == 'administrator' %}data-confirm="Change administrator access for {{ u.username }}?"{% endif %}>{{ (r in roles ? 'Revoke' : 'Grant') }}</button></form>{% endif %}</td></tr>{% endfor %}
+</tbody></table></div>
+<h2>Recent sessions</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">Started</th><th scope="col">Expires</th><th scope="col">State</th><th scope="col">Network</th></tr></thead><tbody>
+{% for s in sessions %}<tr><td>{{ s.created_at[:16]|replace({'T': ' '}) }}</td><td>{{ s.expires_at[:10] }}</td><td>{{ (s.revoked_at ? 'Revoked' : 'Active or expired') }}</td><td>{{ s.ip }}</td></tr>{% else %}<tr><td colspan="4" class="muted">No sessions.</td></tr>{% endfor %}
+</tbody></table></div>
+</div><aside>
+<section class="aside-box"><h2>Account actions</h2>
+  {% for _t9 in [
+     ['verify', 'Mark email as verified', null, not u.email_verified_at and u.is_active],
+     ['deactivate', 'Deactivate and sign out', 'Deactivate this account? It will be signed out everywhere.', u.is_active],
+     ['reactivate', 'Reactivate', null, not u.is_active and not u.anonymized_at],
+     ['reset_mfa', 'Reset two-step sign-in (lost device)', 'Turn off this user\'s two-step sign-in and end their sessions? Only do this after confirming their identity.', u.totp_enabled_at],
+     ['anonymize', 'Anonymise personal data', 'Permanently replace the email, username, name and profile of this account? This cannot be undone.', not u.is_active and not u.anonymized_at]] %}{% set action = _t9[0] %}{% set label = _t9[1] %}{% set confirm = _t9[2] %}{% set show = _t9[3] %}
+    {% if show %}<form method="post" action="/admin/users/{{ u.id }}/{{ action }}"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-small {{ (action == 'anonymize' ? 'btn-danger' : 'btn-secondary') }}" type="submit" {% if confirm %}data-confirm="{{ confirm }}"{% endif %}>{{ label }}</button></form><p></p>{% endif %}
+  {% endfor %}
+</section></aside></div>
+{% endblock %}

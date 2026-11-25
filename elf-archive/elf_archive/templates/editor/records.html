@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, empty, fictional_badge %}
+{% block title %}All records{% endblock %}
+{% block content %}
+<h1>All records</h1>
+{% include "editor/_nav.html" %}
+<p class="muted">Includes restricted and private records. Only staff can see this list.</p>
+<form method="get" class="row">
+  <label for="rk" class="sr-only">Type</label><select id="rk" name="kind">{% for k in ('person', 'family', 'place', 'event', 'organization', 'source', 'archive_item', 'collection', 'oral_history') %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ kind_label(k) }}</option>{% endfor %}</select>
+  <label for="rv" class="sr-only">Access</label><select id="rv" name="visibility"><option value="">Any access</option>{% for v in ('public', 'restricted', 'private') %}<option value="{{ v }}" {% if v == vis %}selected{% endif %}>{{ v|capitalize }}</option>{% endfor %}</select>
+  <label for="rq" class="sr-only">Name or ID</label><input id="rq" type="search" name="q" value="{{ q }}" placeholder="Name or permanent ID">
+  <button class="btn btn-small btn-secondary" type="submit">Show</button></form>
+{% if rows %}
+<div class="table-wrap"><table><thead><tr><th scope="col">Record</th><th scope="col">Permanent ID</th><th scope="col">Status</th><th scope="col">Access</th><th scope="col">Updated</th></tr></thead>
+  <tbody>{% for r in rows %}<tr><td><a href="/editor/records/{{ r.public_id }}">{{ r.title }}</a>{{ fictional_badge(r.is_fictional_test) }}</td><td>{{ r.public_id }}</td>
+    <td>{{ status_badge(r.publication_status) }}</td><td>{{ r.visibility|capitalize }}</td><td>{{ r.updated_at[:10] }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}{{ empty("No records match.") }}{% endif %}
+{% endblock %}

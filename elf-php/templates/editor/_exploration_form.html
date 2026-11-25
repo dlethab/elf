@@ -1,0 +1,24 @@
+{# Expects: form (row, posted form or {}), items (text) #}
+<form method="post" class="stack card" novalidate data-warn-unsaved>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="xt">Title</label><input id="xt" name="title" type="text" value="{{ (form.title ?: '') }}" required dir="auto"></div>
+  <div class="field"><label for="xd">Description (what this selection shows, and what it does not)</label>
+    <textarea id="xd" name="description" rows="5" dir="auto" required aria-describedby="xd-h">{{ (form.description ?: '') }}</textarea>
+    <div class="help" id="xd-h">Describe only what the selected records document. Say what is missing or uncertain. Visitors see this with your name.</div></div>
+  <div class="field"><label for="xs">Sources this selection rests on</label>
+    <textarea id="xs" name="sources_note" rows="3" dir="auto" aria-describedby="xs-h">{{ (form.sources_note ?: '') }}</textarea>
+    <div class="help" id="xs-h">For example the archive collections, published works or oral histories used. Each record also keeps its own sources.</div></div>
+  <div class="grid-2">
+    <div class="field"><label for="xf">Period from (year, optional)</label><input id="xf" name="period_from" type="text" inputmode="numeric" dir="ltr" value="{{ (form.period_from ?: '') }}"></div>
+    <div class="field"><label for="xo">Period to (year, optional)</label><input id="xo" name="period_to" type="text" inputmode="numeric" dir="ltr" value="{{ (form.period_to ?: '') }}"></div>
+  </div>
+  <div class="field"><label for="xr">Region (optional; as recorded on place records)</label><input id="xr" name="region" type="text" value="{{ (form.region ?: '') }}" dir="auto"></div>
+  <div class="field"><label for="f-items">Records, in the order to show them (one per line)</label>
+    <textarea id="f-items" name="items" rows="10" dir="auto" data-refs-target aria-describedby="xi-h">{{ items }}</textarea>
+    <div class="help" id="xi-h">Use “Name [permanent ID]”. To say why a record is included, add “| your note” after it. Only published, public records can be added; a record that later becomes private drops out of the public view automatically.</div>
+    <div class="refs-adder" hidden><label class="sr-only" for="f-items-add">Find a record to add</label>
+      <input id="f-items-add" type="text" list="dl-items-add" data-lookup="any" data-refs-add="f-items" autocomplete="off" dir="auto"
+        placeholder="Type a name to find a record, then press Enter"><datalist id="dl-items-add"></datalist></div></div>
+  <div class="check"><input type="checkbox" id="xp" name="is_published" value="1" {% if form.is_published in [1, '1'] %}checked{% endif %}><label for="xp">Published (listed for visitors)</label></div>
+  <button class="btn" type="submit">Save exploration</button>
+</form>

@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, fictional_badge %}
+{% block title %}{{ x.title }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/explore', _('Historical atlas')), ('/explore/curated', _('Curated explorations')), (request.path, x.title)]) }}
+<span class="kicker">{{ _("Curated exploration") }}</span>
+<h1 dir="auto">{{ x.title }}</h1>
+<p class="small muted">{{ _("Curated by {name}", name=x.curator) }} · {{ _("Updated {date}", date=x.updated_at[:10]) }}{% if x.period_from or x.period_to %} · <span dir="ltr">{{ x.period_from or '…' }} – {{ x.period_to or '…' }}</span>{% endif %}{% if x.region %} · <span dir="auto">{{ x.region }}</span>{% endif %}</p>
+<div class="prose" dir="auto">{% for para in x.description.split('\n') if para.strip() %}<p>{{ para }}</p>{% endfor %}</div>
+<p><a class="btn" href="{{ atlas_url }}">{{ _("Open this period in the atlas") if (x.period_from or x.period_to or x.region) else _("Open the historical atlas") }}</a></p>
+
+<section aria-labelledby="items-h">
+<h2 id="items-h">{{ _("Records in this exploration") }}</h2>
+<p class="small muted">{{ _("Each record is shown as it is now in the archive, with its own sources and evidence. Records that are not public are left out.") }}</p>
+<ol class="guide-items">
+  {% for it in items %}
+  <li><span class="small muted">{{ it.kind_label }}</span><br>
+    <a href="{{ it.url }}" dir="auto">{{ it.title }}</a>{{ fictional_badge(it.fictional) }}
+    {% if it.map %} · <a class="small" href="/explore?mode=map&amp;{{ 'place' if it.kind == 'place' else ('event' if it.kind == 'event' else 'record') }}={{ it.id }}">{{ _("on the map") }}</a>{% endif %}
+    {% if it.note %}<p class="small" dir="auto">{{ it.note }}</p>{% endif %}</li>
+  {% endfor %}
+</ol>
+</section>
+
+<section aria-labelledby="xsrc-h" class="aside-box">
+<h2 id="xsrc-h">{{ _("Sources for this selection") }}</h2>
+{% if x.sources_note %}<div dir="auto">{% for para in x.sources_note.split('\n') if para.strip() %}<p>{{ para }}</p>{% endfor %}</div>
+{% else %}<p class="muted">{{ _("The editor has not listed sources for the selection as a whole. Each record above lists its own sources.") }}</p>{% endif %}
+</section>
+{% endblock %}

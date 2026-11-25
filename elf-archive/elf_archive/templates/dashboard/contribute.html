@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, errors_summary, spec_field, locpick_assets %}
+{% block title %}{{ heading }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/dashboard', _('Dashboard')), (request.path, heading)]) }}
+<h1 dir="auto">{{ heading }}</h1>
+{% if kind == 'correction' %}
+  <p class="lede">{{ _("The form shows the record as it is now. Change only what is wrong and say how you know. Names and sources you add are kept alongside the existing ones, never replacing them.") }}</p>
+{% elif kind == 'oral_history' %}
+  <p class="lede">{{ _("Submit an interview you have recorded. After saving a draft you can upload the recording. The editors check the consent before anything is published, and each part (recording, transcript, translation) is shown only if the interviewee agreed to that use.") }}</p>
+{% elif kind == 'relationship' %}
+  <p class="lede">{{ _("Record a documented relationship between two people who already have published profiles. Relationships need not be biological; choose the type that is documented.") }}</p>
+{% else %}
+  <p class="lede">{{ _("Fill in only what you know. Leave anything uncertain blank, or mark a date as approximate (for example “c. 1962”). Nothing is published until an editor has reviewed it.") }}</p>
+{% endif %}
+{% if kind in ('person', 'family', 'place', 'event', 'organization', 'correction', 'oral_history') and not s %}
+  <div class="notice notice--info"><p>{{ _("Want to add photos? Choose “Save draft” first. You can then add photos on the next page before submitting.") }}
+    {% if kind == 'correction' %}{{ _("To add a photo to this record without changing anything else, just save a draft.") }}{% endif %}</p></div>
+{% endif %}
+{{ errors_summary(errors) }}
+<form method="post" action="{{ request.path }}{% if family %}?family={{ family.public_id }}{% endif %}" novalidate data-warn-unsaved>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if family %}<input type="hidden" name="family" value="{{ family.public_id }}">{% endif %}
+  <fieldset><legend>{{ _("{kind} details", kind=_(kind_label)) }}</legend>
+    {% for f in fields %}{% if f.kind != 'sources' %}{{ spec_field(f, values, errors, choices) }}{% endif %}{% endfor %}
+  </fieldset>
+  {% if form_kind != 'source' %}
+  <fieldset><legend>{{ _("Evidence") }}</legend>
+    {% for f in fields %}{% if f.kind == 'sources' %}{{ spec_field(f, values, errors, choices) }}{% endif %}{% endfor %}
+  </fieldset>
+  {% endif %}
+  <fieldset><legend>{{ _("For the editors") }}</legend>
+    <div class="field"><label for="f-contributor_note">{{ _("How do you know this? Explain anything the editor should know") }}</label>
+      <textarea id="f-contributor_note" name="contributor_note" rows="4" dir="auto" aria-describedby="h-cn">{{ contributor_note }}</textarea>
+      <div class="help" id="h-cn">{{ _("For example: “From my grandfather's letters”, “My own recollection”, “Listed in the book cited above”.") }}</div></div>
+    <div class="field"><label for="f-rights_note">{{ _("Rights and consent information") }}</label>
+      <textarea id="f-rights_note" name="rights_note" rows="3" dir="auto" aria-describedby="h-rn">{{ rights_note }}</textarea>
+      <div class="help" id="h-rn">{{ _("If this concerns a living person, say whether they have agreed to publication.") }}</div></div>
+  </fieldset>
+  <div class="form-actions">
+    <button class="btn btn-secondary" type="submit" name="action" value="draft">{{ _("Save draft") }}</button>
+    <button class="btn" type="submit" name="action" value="submit">{{ _("Save and submit for review") }}</button>
+    <a href="{{ '/dashboard/submissions/' ~ s.id if s else '/dashboard' }}">{{ _("Cancel") }}</a>
+  </div>
+</form>
+{{ locpick_assets(fields, target.public_id if target else '') }}
+{% endblock %}

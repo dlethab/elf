@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, pagination, empty, fictional_badge %}
+{% block title %}{{ _(title) }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), (request.path, _(title))]) }}
+<h1>{{ _(title) }}</h1>
+<p class="muted">{{ _("1 published record") if total == 1 else _("{n} published records", n=total) }}{% if letter %} {{ _("beginning with “{letter}”", letter=letter) }}{% endif %}.
+  {% if kind in ('person', 'family', 'place', 'event', 'source', 'organization') %}<a href="/search?type={{ kind }}">{{ _("Search this section") }}</a>{% endif %}</p>
+
+<nav aria-label="{{ _('Filter by first letter') }}"><ul class="letters" dir="ltr">
+  <li><a href="{{ request.path }}" {% if not letter %}aria-current="true"{% endif %}>{{ _("All") }}</a></li>
+  {% for L in "ABCDEFGHIJKLMNOPQRSTUVWXYZ" %}<li><a href="{{ request.path }}?letter={{ L }}" {% if letter == L %}aria-current="true"{% endif %}>{{ L }}</a></li>{% endfor %}
+</ul></nav>
+
+{% if rows %}
+<ul class="grid">
+  {% for r in rows %}
+  <li class="card">
+    <h3 dir="auto"><a href="{{ record_url(kind, r.slug) }}">{{ r.title }}</a>{{ fictional_badge(r.is_fictional_test) }}</h3>
+    {% if kind == 'person' %}
+      {% set kb = r.birth_precision != 'unknown' %}{% set kd = r.death_precision != 'unknown' %}
+      {% if kb or kd %}<p class="small muted">{% if kb %}{{ _("Born") }} {{ fdate(r.birth_start, r.birth_end, r.birth_precision) }}{% endif %}{% if kb and kd %} · {% endif %}{% if kd %}{{ _("Died") }} {{ fdate(r.death_start, r.death_end, r.death_precision) }}{% endif %}</p>{% endif %}
+    {% elif kind == 'event' %}
+      <p class="small muted">{{ fdate(r.date_start, r.date_end, r.date_precision) }}{% if r.date_precision == 'unknown' %} ({{ _("date not documented") }}){% endif %}</p>
+    {% elif kind == 'place' %}
+      {% if r.admin_region or r.country %}<p class="small muted" dir="auto">{{ r.admin_region or '' }}{% if r.admin_region and r.country %}, {% endif %}{{ r.country or '' }}</p>{% endif %}
+    {% elif kind == 'source' %}
+      {% if r.creator %}<p class="small muted" dir="auto">{{ r.creator }}</p>{% endif %}
+    {% endif %}
+    {% if r.summary_text %}<p class="small" dir="auto">{{ r.summary_text[:200] }}{% if r.summary_text|length > 200 %}…{% endif %}</p>{% endif %}
+  </li>
+  {% endfor %}
+</ul>
+{{ pagination(page, total, per_page) }}
+{% else %}
+  {{ empty(_("Nothing has been published here yet. Records appear only after editorial review."), "/how-to-contribute", _("How to contribute")) }}
+{% endif %}
+{% endblock %}

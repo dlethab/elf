@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, empty %}
+{% block title %}{{ _("My submissions") }}{% endblock %}
+{% block content %}
+<h1>{{ _("My submissions") }}</h1>
+{% include "dashboard/_nav.html" %}
+<form method="get" class="row"><label for="st" class="sr-only">{{ _("Filter by status") }}</label>
+  <select id="st" name="status"><option value="">{{ _("All statuses") }}</option>
+  {% for st in ('draft', 'submitted', 'under_review', 'needs_revision', 'approved', 'published', 'rejected', 'withdrawn') %}
+    <option value="{{ st }}" {% if st == status %}selected{% endif %}>{{ status_label(st)[0] }}</option>{% endfor %}</select>
+  <button class="btn btn-small btn-secondary" type="submit">{{ _("Filter") }}</button></form>
+{% if rows %}
+<div class="table-wrap"><table><caption class="sr-only">{{ _("My submissions") }}</caption>
+  <thead><tr><th scope="col">{{ _("Submission") }}</th><th scope="col">{{ _("Type") }}</th><th scope="col">{{ _("Status") }}</th><th scope="col">{{ _("Updated") }}</th></tr></thead>
+  <tbody>{% for s, t in rows %}<tr><td><a href="/dashboard/submissions/{{ s.id }}" dir="auto">{{ t }}</a></td><td>{{ kind_label(s.kind) }}</td><td>{{ status_badge(s.status) }}</td><td dir="ltr">{{ s.updated_at[:10] }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}{{ empty(_("No submissions yet.")) }}{% endif %}
+{% endblock %}

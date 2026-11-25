@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}{{ _("Notifications") }}{% endblock %}
+{% block content %}
+<h1>{{ _("Notifications") }}</h1>
+{% include "dashboard/_nav.html" %}
+{% if rows %}
+<form method="post" action="/dashboard/notifications"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-small btn-secondary" type="submit">{{ _("Mark all as read") }}</button></form>
+<ul class="plain-list">{% for n in rows %}<li>{% if not n.read_at %}<span class="badge">{{ _("New") }}</span> {% endif %}<a href="{{ n.link }}">{{ _(n.message) }}</a> <span class="small muted" dir="ltr">{{ n.created_at[:16]|replace({'T': ' '}) }}</span></li>{% endfor %}</ul>
+{% else %}{{ empty(_("No notifications yet.")) }}{% endif %}
+{% endblock %}

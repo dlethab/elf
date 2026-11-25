@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, citations_block, accounts_block, record_footer, photos_block %}
+{% block title %}{{ f.display_name }}{% endblock %}
+{% block meta %}<meta name="description" content="{{ ((f.summary ?: (_('Family record: {name}', name=f.display_name))))[:160] }}">
+<link rel="canonical" href="{{ base_url }}{{ record_url('family', e.slug) }}">{% endblock %}
+{% block robots %}{% if e.is_fictional_test %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/families', _('Families')], [request.path, f.display_name]]) }}
+{% with {kicker: _('Family'), title: f.display_name, original: f.original_name, original_lang: null} %}{% include "records/_head.html" %}{% endwith %}
+<div class="two-col">
+  <div>
+    {% if f.summary %}<p class="lede" dir="auto">{{ f.summary }}</p>{% endif %}
+    {% if f.region_note %}<dl class="meta"><dt>{{ _("Associated regions or towns") }}</dt><dd dir="auto">{{ f.region_note }}</dd></dl>{% endif %}
+    <section aria-labelledby="hist-h">
+      <h2 id="hist-h">{{ _("Family history") }}</h2>
+      {% if f.narrative %}<div class="prose" dir="auto">{{ f.narrative }}</div>{% else %}<p class="muted">{{ _("Not yet documented.") }}</p>{% endif %}
+    </section>
+    {{ photos_block(photos) }}
+    <section aria-labelledby="mem-h">
+      <h2 id="mem-h">{{ _("Members with published profiles") }}</h2>
+      {% if members %}<ul class="plain-list">{% for m in members %}<li><a href="{{ record_url('person', m.slug) }}" dir="auto">{{ m.preferred_name }}</a>{% if m.role_note %} <span class="small muted" dir="auto">— {{ m.role_note }}</span>{% endif %}</li>{% endfor %}</ul>
+        <p class="small muted">{{ _("Only members whose profiles are public are listed.") }}</p>
+        <p><a class="btn btn-secondary" href="{{ record_url('family', e.slug) }}/tree">{{ _("View the family tree") }}</a></p>
+      {% else %}<p class="muted">{{ _("No member profiles have been published for this family.") }}</p>{% endif %}
+      {% if can_propose %}<p class="row"><a class="btn btn-secondary" href="/contribute/relationship?family={{ e.public_id }}">{{ _("Propose a relationship for this family") }}</a>
+        <a class="btn btn-secondary" href="/contribute/membership?family={{ e.public_id }}">{{ _("Add a family member") }}</a></p>{% endif %}
+    </section>
+    {{ accounts_block(accts) }}
+    {{ citations_block(cites) }}
+  </div>
+  <aside>{{ record_footer(e, revisions) }}</aside>
+</div>
+{% endblock %}

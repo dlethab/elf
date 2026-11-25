@@ -1,0 +1,13 @@
+{# Shared record header. Expects: kicker, title, e, names (optional), original (optional) #}
+{% from "_macros.html" import fictional_notice %}
+{{ fictional_notice(e.is_fictional_test) }}
+<header class="record-head">
+  <div class="kicker">{{ kicker }}</div>
+  <h1 dir="auto">{{ title }}</h1>
+  {% if original %}<p lang="{{ (original_lang ?: '') }}" dir="auto">{{ original }}</p>{% endif %}
+  {% if names %}
+    {% set shown = names|filter(v => v.name_type != 'original') %}
+    {% if shown %}<p class="alt-names">{{ _("Also recorded as:") }}
+      {% for n in shown %}<span dir="auto" {% if n.language %}lang="{{ n.language }}"{% endif %}>{{ n.name }}</span>{% if n.name_type not in ['alternate_spelling', 'full'] %} <span class="small">({{ _(n.name_type|replace({'_': ' '})) }})</span>{% endif %}{% if not loop.last %}; {% endif %}{% endfor %}</p>{% endif %}
+  {% endif %}
+</header>

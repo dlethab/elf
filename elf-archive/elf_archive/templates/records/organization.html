@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, citations_block, accounts_block, record_footer, evidence_badge, photos_block %}
+{% block title %}{{ o.name }}{% endblock %}
+{% block meta %}<meta name="description" content="{{ (o.description or (_('Organization: {name}', name=o.name)))[:160] }}">
+<link rel="canonical" href="{{ base_url }}{{ record_url('organization', e.slug) }}">{% endblock %}
+{% block robots %}{% if e.is_fictional_test %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/organizations', _('Organizations')), (request.path, o.name)]) }}
+{% with kicker=_('Organization'), title=o.name, original=o.original_name, original_lang=None %}{% include "records/_head.html" %}{% endwith %}
+<div class="two-col">
+  <div>
+    <dl class="meta">
+      <dt>{{ _("Active") }}</dt><dd>{{ fdate(o.active_start, o.active_end, o.active_precision) }}{% if o.active_precision not in ('unknown', 'exact') %} <span class="small muted">({{ precision_note(o.active_precision) }})</span>{% endif %}</dd>
+    </dl>
+    <section aria-labelledby="d-h">
+      <h2 id="d-h">{{ _("Description and history") }}</h2>
+      {% if o.description %}<div class="prose" dir="auto">{{ o.description }}</div>{% else %}<p class="muted">{{ _("Not yet documented.") }}</p>{% endif %}
+    </section>
+    {{ photos_block(photos) }}
+    <section aria-labelledby="m-h">
+      <h2 id="m-h">{{ _("Documented members and affiliated people") }}</h2>
+      <p class="small muted">{{ _("Only affiliations recorded for a specific person are listed. Belonging to the same organization does not mean that people knew each other.") }}</p>
+      {% if members %}<ul class="plain-list">{% for m in members %}
+        <li><a href="{{ record_url('person', m.slug) }}" dir="auto">{{ m.name }}</a>{% if m.role %} — <span dir="auto">{{ m.role }}</span>{% endif %}
+          {% if m.period_precision != 'unknown' %}<span class="small muted"> · {{ fdate(m.period_start, m.period_end, m.period_precision) }}</span>{% endif %}
+          {{ evidence_badge(m.evidence_status) }}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ _("No affiliations have been published.") }}</p>{% endif %}
+      <p class="small"><a href="/contribute/affiliation?organization={{ e.public_id }}">{{ _("Propose an affiliation with this organization") }}</a></p>
+    </section>
+    <section aria-labelledby="ev-h">
+      <h2 id="ev-h">{{ _("Associated events") }}</h2>
+      {% if events %}<ul class="plain-list">{% for ev in events %}<li><a href="{{ record_url('event', ev.slug) }}" dir="auto">{{ ev.title }}</a> <span class="small muted">{{ fdate(ev.date_start, ev.date_end, ev.date_precision) }}</span>
+        {% if ev.role %}<div class="small">{{ _("Role:") }} <span dir="auto">{{ ev.role }}</span> {{ evidence_badge(ev.evidence_status) }}</div>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ _("No associated events have been published.") }}</p>{% endif %}
+    </section>
+    {{ accounts_block(accts) }}
+    {{ citations_block(cites) }}
+  </div>
+  <aside>{{ record_footer(e, revisions) }}</aside>
+</div>
+{% endblock %}

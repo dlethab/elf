@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs %}
+{% block title %}{{ _(title) }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), (request.path, _(title))]) }}
+<h1>{{ _(title) }}</h1>
+{% block draft_notice %}{% endblock %}
+<div class="prose-page">{% block body %}{% endblock %}</div>
+{% endblock %}

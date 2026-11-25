@@ -1,0 +1,235 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, status_badge, evidence_badge, fictional_notice %}
+{% block title %}Staff view: {{ title }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/editor', 'Editorial'), ('/editor/records?kind=' ~ e.kind, 'All records'), (request.path, title)]) }}
+{{ fictional_notice(e.is_fictional_test) }}
+<h1>{{ title }}</h1>
+<p>{{ kind_label(e.kind) }} · {{ status_badge(e.publication_status) }} · Access: <strong>{{ e.visibility|capitalize }}</strong> · {{ e.public_id }}
+  {% if e.publication_status == 'published' and e.visibility == 'public' %} · <a href="{{ record_url(e.kind, e.slug) }}">Public page</a>{% endif %}</p>
+{% if living %}<div class="notice"><p>This person is recorded as <strong>living</strong>. Keep the record restricted unless consent to publish has been confirmed.</p></div>{% endif %}
+{% if merged_into %}<div class="notice notice--info"><p>This record was merged into <a href="/editor/records/{{ merged_into.public_id }}">{{ merged_into.public_id }}</a>. Its address and permanent ID redirect there. Its history is kept below.</p></div>{% endif %}
+{% if editable and can('record.edit') %}<p class="row"><a class="btn btn-small" href="/editor/records/{{ e.public_id }}/edit">Edit this record</a>
+  <a class="btn btn-small btn-secondary" href="#citations">Citations</a> <a class="btn btn-small btn-secondary" href="#accounts">Differing accounts</a>{% if links %} <a class="btn btn-small btn-secondary" href="#links">Links</a>{% endif %}</p>{% endif %}
+
+<div class="two-col">
+<div>
+  {% if item_files %}
+  <h2>Files</h2>
+  {% set th = item_files.get('thumbnail') %}{% set dp = item_files.get('access_derivative') %}{% set og = item_files.get('original') %}
+  {% if th and dp %}<p><a href="{{ media_url(dp.storage_key) }}"><img class="staff-thumb" src="{{ media_url(th.storage_key) }}" alt="{{ title }}"></a></p>{% endif %}
+  <ul class="plain-list small">
+    {% for role, f in item_files.items() %}<li>{{ role.replace('_', ' ')|capitalize }}: {{ f.mime_type }} · {{ f.width }}×{{ f.height }} · {{ (f.size_bytes / 1024)|round|int }} KB · access {{ f.access_level }} · SHA-256 {{ f.sha256[:16] }}…</li>{% endfor %}
+  </ul>
+  {% if og %}<p class="small"><a href="{{ media_url(og.storage_key) }}">Download original</a> (staff only; may contain embedded camera or location data)</p>{% endif %}
+  <h2>Linked records</h2>
+  <ul class="plain-list">{% for pid, k, t in linked %}<li>{{ kind_label(k) }}: <a href="/editor/records/{{ pid }}">{{ t }}</a></li>{% else %}<li class="muted">None</li>{% endfor %}</ul>
+  {% endif %}
+  {% if item_photos %}
+  <h2>Photographs of this record</h2>
+  <ul class="gallery">{% for ph in item_photos %}<li><a href="/editor/records/{{ ph.public_id }}">{% if ph.thumb_key %}<img src="{{ media_url(ph.thumb_key) }}" alt="{{ ph.title }}">{% endif %}<span class="caption">{{ ph.title }}</span></a><span class="small muted">{{ ph.access_level }}</span></li>{% endfor %}</ul>
+  {% endif %}
+  {% if e.kind == 'oral_history' %}
+  <section id="consent" aria-labelledby="cs-h">
+  <h2 id="cs-h">Consent and access</h2>
+  <p class="small">Each use needs its own consent. What is public follows this table automatically: the record is public if the recording or the transcript may be published; the recording plays only with recording consent; downloads only with download consent. An embargo hides everything until its date.</p>
+  <p class="small"><strong>Public now:</strong> {% for t in ('publish_recording', 'publish_transcript', 'publish_translation', 'allow_download') %}{{ CONSENT_LABELS[t] }}: {{ 'yes' if ok[t] else 'no' }}{% if not loop.last %} · {% endif %}{% endfor %}{% if ok.embargoed %} · <strong>under embargo</strong>{% endif %}</p>
+  <div class="table-wrap"><table><caption class="sr-only">Consent records</caption>
+    <thead><tr><th scope="col">Use</th><th scope="col">Consent</th><th scope="col">Evidence</th><th scope="col">Change</th></tr></thead>
+    <tbody>{% for t, row in consents.items() %}<tr><th scope="row">{{ CONSENT_LABELS[t] }}</th>
+      <td>{% if row %}<strong>{{ 'Granted' if row.granted else 'Refused' }}</strong>{% else %}<span class="muted">Not recorded</span>{% endif %}</td>
+      <td class="small">{% if row %}{{ row.evidence_note or '' }}{% if row.granted_on %} · {{ row.granted_on }}{% endif %}{% if row.granted_by_text %} · {{ row.granted_by_text }}{% endif %} · recorded by {{ row.recorded_by_name or '—' }}{% endif %}</td>
+      <td>{% if can('record.restrict') %}<details><summary class="small">Record</summary>
+        <form method="post" action="/editor/records/{{ e.public_id }}/consent/{{ t }}" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="check"><input type="radio" id="g1-{{ t }}" name="granted" value="1" {% if row and row.granted %}checked{% endif %}><label for="g1-{{ t }}">Granted</label></div>
+          <div class="check"><input type="radio" id="g0-{{ t }}" name="granted" value="0" {% if not (row and row.granted) %}checked{% endif %}><label for="g0-{{ t }}">Refused or withdrawn</label></div>
+          <div class="field"><label for="go-{{ t }}">Date (YYYY-MM-DD)</label><input id="go-{{ t }}" name="granted_on" type="text" inputmode="numeric"></div>
+          <div class="field"><label for="gb-{{ t }}">Given by</label><input id="gb-{{ t }}" name="granted_by_text" type="text"></div>
+          <div class="field"><label for="ge-{{ t }}">Evidence (required)</label><input id="ge-{{ t }}" name="evidence_note" type="text" required></div>
+          <button class="btn btn-small" type="submit">Save</button></form></details>{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  {% if can('record.restrict') %}
+  <form method="post" action="/editor/records/{{ e.public_id }}/oral-controls" class="stack card">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label for="emb">Embargo until (YYYY-MM-DD, empty for none)</label><input id="emb" name="embargo_until" type="text" value="{{ oh.embargo_until or '' }}"></div>
+    <div class="check"><input type="checkbox" id="trv" name="transcript_reviewed" value="1" {% if oh.transcript_reviewed %}checked{% endif %}><label for="trv">The transcript has been checked against the recording</label></div>
+    <div class="field"><label for="red">Redaction notes (staff only; the public page only says that passages were removed)</label><textarea id="red" name="redaction_notes" rows="2">{{ oh.redaction_notes or '' }}</textarea></div>
+    <div class="field"><label for="ocr">Reason (kept in the audit log)</label><input id="ocr" name="reason" type="text" required></div>
+    <button class="btn btn-small btn-secondary" type="submit">Save access controls</button></form>
+  {% endif %}
+  </section>
+  {% endif %}
+  {% if e.kind == 'collection' %}
+  <section id="items" aria-labelledby="ci2-h">
+  <h2 id="ci2-h">Items in this collection</h2>
+  {% if coll_items %}<ol class="plain-list">{% for it in coll_items %}<li><a href="/editor/records/{{ it.public_id }}">{{ it.title }}</a> <span class="small muted">{{ it.public_id }} · {{ it.visibility }}{% if it.visibility != 'public' or it.access_level != 'public' %} (not shown publicly){% endif %}</span>
+    <form method="post" action="/editor/records/{{ e.public_id }}/collection/items" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="item_id" value="{{ it.id }}">
+      <button class="linkish" name="op" value="up" type="submit" aria-label="Move up">↑</button> <button class="linkish" name="op" value="down" type="submit" aria-label="Move down">↓</button>
+      <button class="linkish" name="op" value="remove" type="submit">Remove</button></form></li>{% endfor %}</ol>
+  {% else %}<p class="muted">No items yet.</p>{% endif %}
+  <form method="post" action="/editor/records/{{ e.public_id }}/collection/items" class="row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="op" value="add">
+    <label for="ci-add" class="sr-only">Archive item</label><input id="ci-add" name="item" type="text" list="dl-items" data-lookup="archive_item" autocomplete="off" placeholder="Item title or ID (itm-…)" required>
+    <datalist id="dl-items"></datalist><button class="btn btn-small" type="submit">Add item</button></form>
+  <h3>Collection details</h3>
+  <form method="post" action="/editor/records/{{ e.public_id }}/collection" class="stack card"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="field"><label for="cet">Title</label><input id="cet" name="title" type="text" value="{{ coll.title }}" required></div>
+    <div class="field"><label for="ced">Description</label><textarea id="ced" name="description" rows="4" dir="auto">{{ coll.description or '' }}</textarea></div>
+    <div class="field"><label for="cer">Rights note</label><textarea id="cer" name="rights_note" rows="2">{{ coll.rights_note or '' }}</textarea></div>
+    <div class="field"><label for="cev">Who can see it</label><select id="cev" name="visibility"><option value="public" {% if e.visibility == 'public' %}selected{% endif %}>Public</option><option value="restricted" {% if e.visibility != 'public' %}selected{% endif %}>Restricted (staff only)</option></select></div>
+    <div class="check"><input type="checkbox" id="cef" name="is_featured" value="1" {% if coll.is_featured %}checked{% endif %}><label for="cef">Feature it on the home page</label></div>
+    <div class="field"><label for="cerr">Reason (kept in the audit log)</label><input id="cerr" name="reason" type="text" required></div>
+    <button class="btn btn-small btn-secondary" type="submit">Save details</button></form>
+  </section>
+  {% endif %}
+  <h2>Stored data</h2>
+  <dl class="meta">{% for k, v in fields.items() %}<dt>{{ k.replace('_', ' ') }}</dt><dd class="prose" dir="auto">{{ v }}</dd>{% endfor %}</dl>
+  <h2>Names</h2>
+  <ul class="plain-list">{% for n in names %}<li dir="auto">{{ n.name }} <span class="small muted">({{ n.name_type.replace('_', ' ') }}{% if n.language %}, {{ n.language }}{% endif %})</span></li>{% else %}<li class="muted">None</li>{% endfor %}</ul>
+  <section id="citations" aria-labelledby="ci-h">
+  <h2 id="ci-h">Citations</h2>
+  <p class="small muted">Each citation ties one source to one claim. Rate the evidence for that claim only.</p>
+  {% for c in cites %}
+  <details class="cite curate">
+    <summary><strong>{{ c.title }}</strong>{% if c.locator %} — {{ c.locator }}{% endif %} {{ evidence_badge(c.evidence_status) }}{% if c.field_name %} <span class="small">supports {{ c.field_name.replace('_', ' ') }}</span>{% endif %}</summary>
+    {% if c.claim_text %}<p class="small">Claim: {{ c.claim_text }}</p>{% endif %}
+    {% if can('citation.manage') %}
+    <form method="post" action="/editor/records/{{ e.public_id }}/citations/{{ c.id }}" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="anchor" value="#citations">
+      <div class="grid2">
+        <div class="field"><label for="cf-{{ c.id }}">Supports</label><select id="cf-{{ c.id }}" name="field_name">{% for k, l in citation_fields %}<option value="{{ k }}" {% if (c.field_name or '') == k %}selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="ce-{{ c.id }}">Evidence</label><select id="ce-{{ c.id }}" name="evidence_status">{% for k in EVIDENCE_KEYS %}<option value="{{ k }}" {% if c.evidence_status == k %}selected{% endif %}>{{ EVIDENCE[k][0] }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="field"><label for="cc-{{ c.id }}">The claim it supports</label><input id="cc-{{ c.id }}" name="claim_text" type="text" value="{{ c.claim_text or '' }}"></div>
+      <div class="field"><label for="cl-{{ c.id }}">Page, timestamp or section</label><input id="cl-{{ c.id }}" name="locator" type="text" value="{{ c.locator or '' }}"></div>
+      <div class="field"><label for="cx-{{ c.id }}">Public explanation</label><textarea id="cx-{{ c.id }}" name="explanation" rows="2">{{ c.explanation or '' }}</textarea></div>
+      <div class="field"><label for="cn-{{ c.id }}">Editor note (confidential)</label><textarea id="cn-{{ c.id }}" name="editor_note" rows="2">{{ c.editor_note or '' }}</textarea></div>
+      <div class="field"><label for="cr-{{ c.id }}">Reason (required to remove)</label><input id="cr-{{ c.id }}" name="reason" type="text"></div>
+      <div class="row"><button class="btn btn-small btn-secondary" type="submit" name="op" value="update">Save assessment</button>
+        <button class="linkish" type="submit" name="op" value="remove" data-confirm="Remove this citation? It stays in the audit log.">Remove citation</button></div>
+    </form>{% endif %}
+  </details>
+  {% else %}<p class="muted">No citations.</p>{% endfor %}
+  {% if can('citation.manage') and editable %}
+  <details class="curate"><summary>Add a citation</summary>
+    <form method="post" action="/editor/records/{{ e.public_id }}/citations" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="anchor" value="#citations">
+      <div class="field"><label for="nc-s">Source</label><input id="nc-s" name="source" type="text" list="dl-src" data-lookup="source" autocomplete="off" required>
+        <datalist id="dl-src">{% for v, l in source_choices %}<option value="{{ l }}"></option>{% endfor %}</datalist>
+        <div class="help">Start typing a source title. To cite a source that is not in the archive yet, add it first (New source) and publish it.</div></div>
+      <div class="grid2">
+        <div class="field"><label for="nc-f">Supports</label><select id="nc-f" name="field_name">{% for k, l in citation_fields %}<option value="{{ k }}">{{ l }}</option>{% endfor %}</select></div>
+        <div class="field"><label for="nc-e">Evidence</label><select id="nc-e" name="evidence_status">{% for k in EVIDENCE_KEYS %}<option value="{{ k }}" {% if k == 'unverified' %}selected{% endif %}>{{ EVIDENCE[k][0] }}</option>{% endfor %}</select></div>
+      </div>
+      <div class="field"><label for="nc-c">The claim it supports</label><input id="nc-c" name="claim_text" type="text"></div>
+      <div class="field"><label for="nc-l">Page, timestamp or section</label><input id="nc-l" name="locator" type="text"></div>
+      <div class="field"><label for="nc-x">Public explanation</label><textarea id="nc-x" name="explanation" rows="2"></textarea></div>
+      <div class="field"><label for="nc-n">Editor note (confidential)</label><textarea id="nc-n" name="editor_note" rows="2"></textarea></div>
+      <button class="btn btn-small" type="submit">Add citation</button></form>
+  </details>{% endif %}
+  </section>
+
+  <section id="accounts" aria-labelledby="ac-h">
+  <h2 id="ac-h">Differing accounts</h2>
+  <p class="small muted">When sources disagree, record each account with its attribution instead of choosing one silently. Public accounts appear on the record page.</p>
+  {% for a in accts %}
+  <details class="cite curate"><summary><strong>{{ a.topic }}</strong> {% if a.is_public %}<span class="badge">public</span>{% else %}<span class="badge">staff only</span>{% endif %}{% if a.needs_research %} <span class="badge ev-hypothesis">needs research</span>{% endif %}</summary>
+    <p class="prose small">{{ a.account_text }}</p>
+    {% if can('citation.manage') %}{% with a=a, action='/editor/records/' ~ e.public_id ~ '/accounts/' ~ a.id, needs_reason=True %}{% include "editor/_account_form.html" %}{% endwith %}{% endif %}
+  </details>
+  {% else %}<p class="muted">None recorded.</p>{% endfor %}
+  {% if can('citation.manage') and editable %}
+  <details class="curate"><summary>Record a differing account</summary>
+    {% with a=None, action='/editor/records/' ~ e.public_id ~ '/accounts', needs_reason=False %}{% include "editor/_account_form.html" %}{% endwith %}
+  </details>{% endif %}
+  </section>
+
+  {% if links %}
+  <section id="links" aria-labelledby="ln-h">
+  <h2 id="ln-h">Links to other records</h2>
+  <p class="small muted">Relationships, family memberships, affiliations and event participation. Links involving a living person stay restricted unless consent is confirmed.</p>
+  {% for l in links %}{% set r = l.row %}
+  <details class="cite curate"><summary>{{ l.table.replace('_', ' ')|capitalize }}:
+      {% for o in l.others %}<a href="/editor/records/{{ o.id }}">{{ o.title }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+      {% if r['relationship_type'] is defined and r['relationship_type'] %} <span class="small">({{ r['relationship_type'].replace('_', ' ') }})</span>{% endif %}
+      {% if 'visibility' in r.keys() %} <span class="badge">{{ r['visibility'] }}</span>{% endif %}
+      {% if 'evidence_status' in r.keys() %} {{ evidence_badge(r['evidence_status']) }}{% endif %}</summary>
+    {% if can('record.edit') %}
+    <form method="post" action="/editor/records/{{ e.public_id }}/links/{{ l.table }}/{{ r['id'] }}" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="anchor" value="#links">
+      <div class="grid2">
+      {% if 'status' in r.keys() %}<div class="field"><label for="ls-{{ l.table }}-{{ r['id'] }}">Status</label><select id="ls-{{ l.table }}-{{ r['id'] }}" name="status">{% for s in REL_STATUSES %}<option value="{{ s }}" {% if r['status'] == s %}selected{% endif %}>{{ s|capitalize }}</option>{% endfor %}</select></div>{% endif %}
+      {% if 'visibility' in r.keys() %}<div class="field"><label for="lv-{{ l.table }}-{{ r['id'] }}">Who can see it</label><select id="lv-{{ l.table }}-{{ r['id'] }}" name="visibility">{% for v in visibilities %}<option value="{{ v }}" {% if r['visibility'] == v %}selected{% endif %}>{{ v|capitalize }}</option>{% endfor %}</select></div>{% endif %}
+      {% if 'evidence_status' in r.keys() %}<div class="field"><label for="le-{{ l.table }}-{{ r['id'] }}">Evidence</label><select id="le-{{ l.table }}-{{ r['id'] }}" name="evidence_status">{% for k in EVIDENCE_KEYS %}<option value="{{ k }}" {% if r['evidence_status'] == k %}selected{% endif %}>{{ EVIDENCE[k][0] }}</option>{% endfor %}</select></div>{% endif %}
+      {% if l.period_input is not none %}<div class="field"><label for="lp-{{ l.table }}-{{ r['id'] }}">Dates</label><input id="lp-{{ l.table }}-{{ r['id'] }}" name="period" type="text" value="{{ l.period_input }}"></div>{% endif %}
+      </div>
+      {% for f in ('role', 'role_note') %}{% if f in r.keys() %}<div class="field"><label for="lr-{{ f }}-{{ l.table }}-{{ r['id'] }}">{{ 'Role' if f == 'role' else 'Place in the family' }}</label><input id="lr-{{ f }}-{{ l.table }}-{{ r['id'] }}" name="{{ f }}" type="text" value="{{ r[f] or '' }}"></div>{% endif %}{% endfor %}
+      {% if 'notes' in r.keys() %}<div class="field"><label for="ln-{{ l.table }}-{{ r['id'] }}">Notes</label><textarea id="ln-{{ l.table }}-{{ r['id'] }}" name="notes" rows="2">{{ r['notes'] or '' }}</textarea></div>{% endif %}
+      <div class="check"><input type="checkbox" id="lc-{{ l.table }}-{{ r['id'] }}" name="consent_confirmed" value="1"><label for="lc-{{ l.table }}-{{ r['id'] }}">If a living person is involved: consent to publish has been confirmed</label></div>
+      <div class="field"><label for="lx-{{ l.table }}-{{ r['id'] }}">Reason (kept in the audit log)</label><input id="lx-{{ l.table }}-{{ r['id'] }}" name="reason" type="text" required></div>
+      <div class="row"><button class="btn btn-small btn-secondary" type="submit" name="op" value="update">Save link</button>
+        <button class="linkish" type="submit" name="op" value="remove" data-confirm="Remove this link? It stays in the audit log.">Remove link</button></div>
+    </form>{% endif %}
+  </details>
+  {% endfor %}
+  </section>
+  {% endif %}
+  <h2>Full revision history</h2>
+  <div class="table-wrap"><table><thead><tr><th scope="col">#</th><th scope="col">Date</th><th scope="col">By</th><th scope="col">Change</th><th scope="col">Reason</th></tr></thead>
+    <tbody>{% for r in revs %}<tr><td>{{ r.revision_number }}</td><td>{{ r.created_at[:16].replace('T', ' ') }}</td><td>{{ r.username or '—' }}</td><td>{{ r.change_summary }}{% if r.submission_id %} <a class="small" href="/editor/submissions/{{ r.submission_id }}">submission</a>{% endif %}</td><td>{{ r.reason or '' }}</td></tr>{% endfor %}</tbody></table></div>
+</div>
+<aside>
+  {% if can('record.restrict') %}
+  <section class="aside-box" aria-labelledby="acc-h"><h2 id="acc-h">Access and publication</h2>
+    <form method="post" action="/editor/records/{{ e.public_id }}/state" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="vis">Who can see it</label><select id="vis" name="visibility">{% for v in visibilities %}<option value="{{ v }}" {% if v == e.visibility %}selected{% endif %}>{{ v|capitalize }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="st">Publication</label><select id="st" name="status"><option value="">Keep as is ({{ status_label(e.publication_status)[0] }})</option><option value="published">Published</option><option value="archived">Unpublished (archived)</option></select></div>
+      {% if living %}<div class="check"><input type="checkbox" id="cc2" name="consent_confirmed" value="1"><label for="cc2">Consent to publish has been confirmed</label></div>{% endif %}
+      <div class="field"><label for="rs">Reason (kept in the audit log)</label><textarea id="rs" name="reason" rows="2" required></textarea></div>
+      <button class="btn btn-small" type="submit">Update access</button></form>
+  </section>
+  {% if e.kind == 'archive_item' %}
+  <section class="aside-box" aria-labelledby="rt-h"><h2 id="rt-h">Rights</h2>
+    <form method="post" action="/editor/records/{{ e.public_id }}/rights" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="rst">Rights status</label><select id="rst" name="rights_status">{% for r in rights_statuses %}<option value="{{ r }}" {% if r == fields.get('rights_status') %}selected{% endif %}>{{ rights_label(r) }}</option>{% endfor %}</select></div>
+      <div class="field"><label for="rh">Rights holder</label><input id="rh" name="rights_holder" type="text" value="{{ fields.get('rights_holder', '') }}"></div>
+      <div class="field"><label for="rr">Reason (kept in the audit log)</label><textarea id="rr" name="reason" rows="2" required></textarea></div>
+      <button class="btn btn-small btn-secondary" type="submit">Update rights</button></form>
+    <p class="small muted">Rights that do not allow public display restrict the item immediately.</p>
+  </section>
+  {% endif %}
+  <section class="aside-box" aria-labelledby="slug-h"><h2 id="slug-h">Web address</h2>
+    <p class="small">{{ record_url(e.kind, e.slug) }}</p>
+    <form method="post" action="/editor/records/{{ e.public_id }}/slug" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="sl">New address ending</label><input id="sl" name="slug" type="text" value="{{ e.slug }}"></div>
+      <button class="btn btn-small btn-secondary" type="submit">Change address</button></form>
+    <p class="small muted">The old address will keep working and redirect here.</p>
+  </section>
+  {% endif %}
+  {% if mergeable and can('record.merge') %}
+  <section class="aside-box" aria-labelledby="mg-h"><h2 id="mg-h">Duplicate?</h2>
+    <form method="get" action="/editor/merge" class="stack">
+      <input type="hidden" name="keep" value="{{ e.public_id }}">
+      <div class="field"><label for="mg-r">Another record of the same {{ kind_label(e.kind)|lower }} to merge into this one</label>
+        <input id="mg-r" name="retire" type="text" list="dl-same" data-lookup="{{ e.kind }}" autocomplete="off" required>
+        <datalist id="dl-same">{% for v, l in same_kind_choices %}{% if v != e.public_id %}<option value="{{ l }}"></option>{% endif %}{% endfor %}</datalist></div>
+      <button class="btn btn-small btn-secondary" type="submit">Preview merge</button></form>
+    <p class="small muted">You will see both records side by side before anything changes. This record keeps its ID and address.</p>
+  </section>
+  {% endif %}
+  {% if merges %}
+  <section class="aside-box"><h2>Merge history</h2><ul class="plain-list small">{% for m in merges %}<li>{{ m.created_at[:10] }}: {{ m.retire_pid }} → {{ m.keep_pid }} by {{ m.username }}<div class="muted">{{ m.reason }}</div></li>{% endfor %}</ul></section>
+  {% endif %}
+  {% if e.kind == 'family' and can('family_rep.manage') %}
+  <section class="aside-box" aria-labelledby="rep-h"><h2 id="rep-h">Family representatives</h2>
+    {% if reps %}<ul class="plain-list">{% for r in reps %}<li>{{ r.display_name }} ({{ r.username }})
+      <div class="small muted">{{ 'edits' if r.can_suggest_edits }} {{ '· tree' if r.can_propose_tree }} {{ '· media' if r.can_submit_media }}</div>
+      <form method="post" action="/editor/families/{{ e.public_id }}/representatives/{{ r.id }}/revoke" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkish" type="submit" data-confirm="Revoke this representative's permissions?">Revoke</button></form></li>{% endfor %}</ul>
+    {% else %}<p class="small muted">None.</p>{% endif %}
+    <form method="post" action="/editor/families/{{ e.public_id }}/representatives" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="ru">Username</label><input id="ru" name="username" type="text" required></div>
+      <div class="check"><input type="checkbox" id="p1" name="can_suggest_edits" value="1" checked><label for="p1">May suggest edits to the family record</label></div>
+      <div class="check"><input type="checkbox" id="p2" name="can_propose_tree" value="1" checked><label for="p2">May propose family relationships</label></div>
+      <div class="check"><input type="checkbox" id="p3" name="can_submit_media" value="1"><label for="p3">May submit family media (when the archive opens)</label></div>
+      <button class="btn btn-small btn-secondary" type="submit">Add representative</button></form>
+    <p class="small muted">Representatives can only propose. Everything they submit is reviewed.</p>
+  </section>
+  {% endif %}
+</aside>
+</div>
+{% endblock %}

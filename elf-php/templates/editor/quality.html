@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}Data quality{% endblock %}
+{% block content %}
+<h1>Data quality</h1>
+{% include "editor/_nav.html" %}
+<p class="lede">Records that may need attention. These are prompts to investigate; nothing is changed automatically, and an item on this list is not necessarily wrong.</p>
+{% for _t19 in checks %}{% set label = _t19[0] %}{% set rows = _t19[1] %}
+<details class="curate" {% if rows and loop.index <= 2 %}open{% endif %}><summary>{{ label }} ({{ rows|length }}{% if rows|length == 200 %}+{% endif %})</summary>
+  {% if rows %}<ul class="plain-list small">{% for _t20 in rows %}{% set pid = _t20[0] %}{% set kind = _t20[1] %}{% set title = _t20[2] %}<li>{{ kind_label(kind) }}: <a href="/editor/records/{{ pid }}" dir="auto">{{ title }}</a> <span class="muted">{{ pid }}</span></li>{% endfor %}</ul>
+  {% else %}<p class="small muted">None.</p>{% endif %}
+</details>
+{% endfor %}
+{% endblock %}

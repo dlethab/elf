@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs %}
+{% block title %}{{ _("Edit your post") }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/community', _('Community')], ['/community/topics/' ~ p.topic_slug, _('Topic')], [request.path, _('Edit your post')]]) }}
+<h1>{{ _("Edit your post") }}</h1>
+{% if not allowed %}<div class="notice"><p>{{ _("You can edit your own posts for 24 hours after posting.") }}</p></div>
+{% else %}
+{% if error %}<div class="notice notice--error" role="alert"><p>{{ _(error) }}</p></div>{% endif %}
+<p class="small muted">{{ _("The earlier version is kept and can be seen by moderators.") }}</p>
+<form method="post" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <div class="field"><label for="eb">{{ _("Message") }}</label><textarea id="eb" name="body" rows="8" dir="auto" required>{{ body }}</textarea></div>
+  <button class="btn" type="submit">{{ _("Save") }}</button> <a href="/community/topics/{{ p.topic_slug }}#post-{{ p.id }}">{{ _("Cancel") }}</a></form>
+{% endif %}
+{% endblock %}

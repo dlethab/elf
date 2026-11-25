@@ -1,0 +1,4 @@
+<nav aria-label="Administration"><ul class="tabs">
+  {% for _t4 in [['/admin', 'Overview'], ['/admin/users', 'Users and roles'], ['/admin/audit', 'Audit log'], ['/admin/taxonomies', 'Categories'], ['/admin/export', 'Data export']] %}{% set href = _t4[0] %}{% set label = _t4[1] %}
+  <li><a href="{{ href }}" {% if request.path == href %}aria-current="page"{% endif %}>{{ label }}</a></li>{% endfor %}
+</ul></nav>

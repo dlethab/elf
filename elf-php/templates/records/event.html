@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, citations_block, accounts_block, record_footer, evidence_badge, photos_block %}
+{% block title %}{{ ev.title }}{% endblock %}
+{% block meta %}<meta name="description" content="{{ ((ev.summary ?: (_('Historical event: {name}', name=ev.title))))[:160] }}">
+<link rel="canonical" href="{{ base_url }}{{ record_url('event', e.slug) }}">{% endblock %}
+{% block robots %}{% if e.is_fictional_test %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% set mapped = details.event_places|filter(v => v.mapped) %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/events', _('Events')], [request.path, ev.title]]) }}
+{% with {kicker: _('Event') ~ ((etype ? ' · ' ~ _(etype.label) : '')), title: ev.title, original: null} %}{% include "records/_head.html" %}{% endwith %}
+<div class="two-col">
+  <div>
+    {% if ev.summary %}<p class="lede" dir="auto">{{ ev.summary }}</p>{% endif %}
+    <dl class="meta">
+      <dt>{{ _("Date") }}</dt><dd>{{ fdate(ev.date_start, ev.date_end, ev.date_precision) }}
+        <span class="small muted">({{ precision_note(ev.date_precision) }})</span>
+        {% if details.date_disputes %}<br><span class="badge ev-disputed">{{ _("Sources disagree about the date") }}</span> <a class="small" href="#accounts-h">{{ _("See the differing accounts") }}</a>{% endif %}</dd>
+      <dt>{{ _("Place") }}</dt><dd>{% if details.event_places %}<ul class="plain-list">{% for pl in details.event_places %}
+        <li><a href="{{ pl.url }}" dir="auto">{{ pl.title }}</a>{% if pl.region %} <span class="small muted" dir="auto">· {{ pl.region }}</span>{% endif %}
+          {% if pl.uncertain %} <span class="badge ev-hypothesis">{{ _("link to this place uncertain") }}</span>{% endif %}
+          {% if pl.mapped %}<span class="small muted"> · {{ (pl.precision == 'approximate' ? _("Approximate location") : (pl.precision == 'region_centroid' ? _("Region only") : _("Documented location"))) }}</span>
+            · <a class="small" href="/map?event={{ e.public_id }}&amp;place={{ pl.id }}">{{ _("Show on the map") }}</a>
+          {% else %}<span class="small muted"> · {{ _("No documented coordinates") }}</span>{% endif %}</li>{% endfor %}</ul>
+        {% else %}{{ _("Not documented") }}{% endif %}</dd>
+    </dl>
+    <section aria-labelledby="acc-h">
+      <h2 id="acc-h">{{ _("Historical account") }}</h2>
+      {% if ev.description %}<div class="prose" dir="auto">{{ ev.description }}</div>{% else %}<p class="muted">{{ _("Not yet documented.") }}</p>{% endif %}
+    </section>
+    {{ photos_block(photos) }}
+    <section aria-labelledby="par-h">
+      <h2 id="par-h">{{ _("Participants") }}</h2>
+      {% if participants %}<ul class="plain-list">{% for x in participants %}<li>{% if x.kind == 'organization' %}<span class="small muted">{{ _("Organization") }}:</span> {% endif %}<a href="{{ record_url(x.kind, x.slug) }}" dir="auto">{{ x.name }}</a>{% if x.role %} — <span dir="auto">{{ x.role }}</span>{% endif %} {{ evidence_badge(x.evidence_status) }}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ _("No participants have been documented.") }}</p>{% endif %}
+      <p class="small"><a href="/contribute/participation?event={{ e.public_id }}">{{ _("Propose a participant") }}</a></p>
+    </section>
+    {% if orals %}<section aria-labelledby="oh-h">
+      <h2 id="oh-h">{{ _("Oral histories") }}</h2>
+      <ul class="plain-list">{% for o in orals %}<li><a href="{{ record_url('oral_history', o.slug) }}" dir="auto">{{ o.title }}</a>
+        {% if o.recorded_precision and o.recorded_precision != 'unknown' %}<span class="small muted"> · {{ _("Recorded") }} {{ fdate(o.recorded_start, o.recorded_end, o.recorded_precision) }}</span>{% endif %}</li>{% endfor %}</ul>
+    </section>{% endif %}
+    {% if related %}<section aria-labelledby="rel-h">
+      <h2 id="rel-h">{{ _("Related events") }}</h2>
+      <ul class="plain-list">{% for r in related %}<li><a href="{{ r.url }}" dir="auto">{{ r.title }}</a> <span class="small muted">· {{ r.date }} · {{ (r.why == 'place' ? _("same place") : _("same participant")) }}</span></li>{% endfor %}</ul>
+    </section>{% endif %}
+    {{ accounts_block(accts) }}
+    {{ citations_block(cites) }}
+  </div>
+  <aside>{{ record_footer(e, revisions) }}
+    <div class="aside-box"><h2>{{ _("Explore") }}</h2>
+      <ul class="plain-list small">
+        <li><a href="/timeline?event={{ e.public_id }}{% if year %}&amp;from={{ year[0] }}&amp;to={{ year[1] }}{% endif %}">{{ _("View on the timeline") }}</a></li>
+        {% if mapped %}<li><a href="/map?event={{ e.public_id }}&amp;place={{ mapped[0].id }}">{{ _("Show on the map") }}</a></li>{% endif %}
+      </ul>
+      <p class="small muted">{{ _("Dates, places and participants come from this record. To correct them, suggest a correction; editors review every change.") }}</p>
+      <p class="small"><a href="/contribute/correction/{{ e.public_id }}">{{ _("Suggest a correction") }}</a></p>
+    </div>
+  </aside>
+</div>
+{% endblock %}

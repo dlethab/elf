@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import errors_summary, input %}
+{% block title %}{{ _("Profile") }}{% endblock %}
+{% block content %}
+<h1>{{ _("Profile") }}</h1>
+{% include "dashboard/_nav.html" %}
+{{ errors_summary(errors) }}
+<dl class="meta"><dt>{{ _("Username") }}</dt><dd dir="ltr">{{ u.username }}</dd><dt>{{ _("Email address") }}</dt><dd><span dir="ltr">{{ u.email }}</span> {% if u.email_verified_at %}<span class="badge badge--published">{{ _("Verified") }}</span>{% else %}<span class="badge badge--needs_revision">{{ _("Not verified") }}</span>{% endif %}</dd></dl>
+<form method="post" action="/dashboard/profile" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ input('display_name', _('Display name'), (request.form.display_name ?? u.display_name), errors=errors, required=true, help=_('Does not need to be your real name.')) }}
+  <div class="field"><label for="f-bio">{{ _("Short biography (optional)") }}</label><textarea id="f-bio" name="bio" rows="3" dir="auto">{{ (request.form.bio ?? (u.bio ?: '')) }}</textarea>
+    <div class="help">{{ _("Shown on your public forum profile.") }}</div></div>
+  {{ input('languages', _('Languages (optional)'), (request.form.languages ?? (u.languages ?: ''))) }}
+  {{ input('research_interests', _('Research interests (optional)'), (request.form.research_interests ?? (u.research_interests ?: ''))) }}
+  <fieldset><legend>{{ _("How should your contributions be credited?") }}</legend>
+    {% set pref = (request.form.attribution_pref ?? u.attribution_pref) %}
+    {% for _t15 in [['display_name', _('By my display name')], ['username', _('By my username')], ['anonymous', _('Anonymously')]] %}{% set val = _t15[0] %}{% set label = _t15[1] %}
+    <div class="check"><input type="radio" id="ap-{{ val }}" name="attribution_pref" value="{{ val }}" {% if pref == val %}checked{% endif %}><label for="ap-{{ val }}">{{ label }}</label></div>{% endfor %}
+  </fieldset>
+  <div class="check"><input type="checkbox" id="f-nsu" name="notify_submission_updates" value="1" {% if u.notify_submission_updates %}checked{% endif %}><label for="f-nsu">{{ _("Notify me when an editor responds to my submissions") }}</label></div>
+  <div class="check"><input type="checkbox" id="f-nfr" name="notify_forum_replies" value="1" {% if u.notify_forum_replies %}checked{% endif %}><label for="f-nfr">{{ _("Notify me when someone replies to a forum topic I started") }}</label></div>
+  <button class="btn" type="submit">{{ _("Save profile") }}</button>
+</form>
+{% endblock %}

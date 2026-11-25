@@ -1,0 +1,234 @@
+{# Reusable components. Status and evidence are always shown as text + symbol, never by colour alone.
+   Interface text goes through _(); historical content (names, captions, citations) is shown as recorded. #}
+
+{% macro breadcrumbs(items) %}
+<nav class="breadcrumbs" aria-label="{{ _('Breadcrumb') }}"><ol>
+  {% for href, label in items %}
+    <li>{% if loop.last %}<span aria-current="page" dir="auto">{{ label }}</span>{% else %}<a href="{{ href }}">{{ label }}</a>{% endif %}</li>
+  {% endfor %}
+</ol></nav>
+{% endmacro %}
+
+{% macro status_badge(status) %}{% set l = status_label(status) %}<span class="badge badge--{{ status }}"><span aria-hidden="true">{{ l[1] }}</span> {{ l[0] }}</span>{% endmacro %}
+
+{% macro evidence_badge(ev) %}{% set e = EVIDENCE.get(ev) %}{% if e %}<span class="badge ev-{{ ev }}" title="{{ _(e[1]) }}">{{ _(e[0]) }}</span>{% endif %}{% endmacro %}
+
+{% macro fictional_notice(flag) %}{% if flag %}
+<div class="notice notice--fictional" role="note"><p>{{ _("Fictional test record. This exists only to test the software. It is not historical information.") }}</p></div>
+{% endif %}{% endmacro %}
+
+{% macro fictional_badge(flag) %}{% if flag %} <span class="badge badge--fictional">{{ _("Fictional test record") }}</span>{% endif %}{% endmacro %}
+
+{% macro pagination(page, total, per_page) %}
+{% set pages = ((total + per_page - 1) // per_page) %}
+{% if pages > 1 %}
+<nav aria-label="{{ _('Pagination') }}"><ul class="pagination">
+  {% if page > 1 %}<li><a href="{{ page_url(page - 1) }}" rel="prev">{{ _("Previous") }}</a></li>{% endif %}
+  {% for n in range(1, pages + 1) %}{% if n == page or n == 1 or n == pages or (n - page)|abs <= 2 %}
+    <li>{% if n == page %}<span aria-current="page">{{ n }}</span>{% else %}<a href="{{ page_url(n) }}">{{ n }}</a>{% endif %}</li>
+  {% endif %}{% endfor %}
+  {% if page < pages %}<li><a href="{{ page_url(page + 1) }}" rel="next">{{ _("Next") }}</a></li>{% endif %}
+</ul></nav>
+{% endif %}
+{% endmacro %}
+
+{% macro empty(text, action_href=None, action_label=None) %}
+<div class="empty"><p>{{ text }}</p>{% if action_href %}<p><a class="btn btn-secondary" href="{{ action_href }}">{{ action_label }}</a></p>{% endif %}</div>
+{% endmacro %}
+
+{% macro citations_block(cites) %}
+<section aria-labelledby="sources-h">
+  <h2 id="sources-h">{{ _("Sources and citations") }}</h2>
+  {% if cites %}
+    <p class="muted small">{{ _("Each citation supports a specific claim. A source listed here does not confirm every statement on this page.") }}</p>
+    {% for c in cites %}
+    <div class="cite">
+      <div class="title" dir="auto"><a href="{{ record_url('source', c.source_slug) }}">{{ c.title }}</a>{% if c.creator %}, {{ c.creator }}{% endif %}</div>
+      <div class="small">
+        {% if c.locator %}<span dir="auto">{{ c.locator }}</span> · {% endif %}{% if c.field_name %}{{ _("Supports:") }} {{ c.field_name.replace('_', ' ') }} · {% endif %}{{ evidence_badge(c.evidence_status) }}
+      </div>
+      {% if c.claim_text %}<div class="small" dir="auto">{{ _("Claim:") }} {{ c.claim_text }}</div>{% endif %}
+      {% if c.explanation %}<div class="small muted" dir="auto">{{ c.explanation }}</div>{% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+    <p class="muted">{{ _("No sources have been attached to this record yet.") }}</p>
+  {% endif %}
+</section>
+{% endmacro %}
+
+{% macro accounts_block(accts) %}{% if accts %}
+<section aria-labelledby="accounts-h">
+  <h2 id="accounts-h">{{ _("Differing accounts") }}</h2>
+  <p class="muted small">{{ _("Historical accounts of this record differ. The archive preserves each account with its attribution rather than choosing one silently.") }}</p>
+  {% for a in accts %}
+  <div class="cite"><div class="title" dir="auto">{{ a.topic }}</div><div dir="auto">{{ a.account_text }}</div>
+    <div class="small muted">{% if a.attributed_to %}{{ _("Attributed to {who}.", who=a.attributed_to) }} {% endif %}{% if a.basis_note %}<span dir="auto">{{ a.basis_note }}</span> {% endif %}{% if a.needs_research %}{{ _("Further research needed.") }}{% endif %}</div></div>
+  {% endfor %}
+</section>
+{% endif %}{% endmacro %}
+
+{% macro tile(item) %}{% if item.thumb_key %}<img src="{{ media_url(item.thumb_key) }}" alt="{{ item.title }}" loading="lazy">
+{% else %}<span class="tile tile--{{ item.media_kind }}" aria-hidden="true"><span class="tile__icon">{{ {'document': '▤', 'audio': '♪', 'video': '▶'}.get(item.media_kind, '▣') }}</span>{{ item_type_label(item.item_type) }}</span>{% endif %}{% endmacro %}
+
+{% macro photos_block(photos) %}{% if photos %}
+<section aria-labelledby="photos-h">
+  <h2 id="photos-h">{{ _("Photographs and documents") }}</h2>
+  <ul class="gallery">
+    {% for ph in photos %}
+    <li><a href="{{ record_url('archive_item', ph.slug) }}">{{ tile(ph) }}
+      <span class="caption" dir="auto">{{ ph.title }}</span></a>
+      <span class="small muted">{{ item_type_label(ph.item_type) }}{% if ph.created_precision != 'unknown' %} · {{ fdate(ph.created_start, ph.created_end, ph.created_precision) }}{% endif %}</span></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endif %}{% endmacro %}
+
+{% macro media_player(kind, key, label, size=None) %}
+{% if kind == 'audio' %}<audio class="player" controls preload="metadata" src="{{ media_url(key) }}" aria-label="{{ label }}"></audio>
+{% elif kind == 'video' %}<video class="player" controls preload="metadata" src="{{ media_url(key) }}" aria-label="{{ label }}"></video>
+{% elif kind == 'document' %}<p><a class="btn btn-secondary" href="{{ media_url(key) }}">{{ _("Download the document (PDF{size})", size=(', ' ~ (size // 1024) ~ ' KB') if size else '') }}</a></p>{% endif %}
+{% endmacro %}
+
+{% macro record_footer(entity, revisions) %}
+<section aria-labelledby="history-h" class="aside-box">
+  <h2 id="history-h">{{ _("Record information") }}</h2>
+  <dl class="meta">
+    <dt>{{ _("Permanent ID") }}</dt><dd><a href="/id/{{ entity.public_id }}" dir="ltr">{{ entity.public_id }}</a></dd>
+    <dt>{{ _("Last updated") }}</dt><dd dir="ltr">{{ entity.updated_at[:10] }}</dd>
+  </dl>
+  {% if revisions %}
+  <details><summary>{{ _("Change history ({n})", n=revisions|length) }}</summary>
+    <ul class="plain-list small">{% for r in revisions %}<li><span dir="ltr">{{ r.created_at[:10] }}</span> — <span lang="en" dir="ltr">{{ r.change_summary }}</span></li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+  <p class="small">{% if entity.kind != 'archive_item' %}<a href="/contribute/correction/{{ entity.public_id }}">{{ _("Suggest a correction or add a photo") }}</a> · {% endif %}<a href="/contact?about={{ entity.public_id }}">{{ _("Contact the archive about this record") }}</a></p>
+</section>
+{% endmacro %}
+
+{% macro errors_summary(errors) %}{% if errors %}
+<div class="notice notice--error" id="error-summary" tabindex="-1" role="alert">
+  <p><strong>{{ _("Please correct the problem below.") if errors|length == 1 else _("Please correct the {n} problems below.", n=errors|length) }}</strong></p>
+  {% if errors.form %}<p>{{ _(errors.form) }}</p>{% endif %}
+</div>
+{% endif %}{% endmacro %}
+
+{% macro input(name, label, value='', type='text', errors={}, help='', required=False, autocomplete=None) %}
+<div class="field{% if errors.get(name) %} has-error{% endif %}">
+  <label for="f-{{ name }}">{{ label }}{% if required %} <span aria-hidden="true">*</span>{% endif %}</label>
+  <input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value or '' }}" {% if required %}required{% endif %}
+    {% if type in ('email', 'password') %}dir="ltr"{% else %}dir="auto"{% endif %}
+    {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
+    {% if errors.get(name) or help %}aria-describedby="{% if errors.get(name) %}e-{{ name }}{% endif %} {% if help %}h-{{ name }}{% endif %}"{% endif %}
+    {% if errors.get(name) %}aria-invalid="true"{% endif %}>
+  {% if help %}<div class="help" id="h-{{ name }}">{{ help }}</div>{% endif %}
+  {% if errors.get(name) %}<div class="error-text" id="e-{{ name }}">{{ _(errors[name]) }}</div>{% endif %}
+</div>
+{% endmacro %}
+
+{# Map location picker (static/js/locpick.js). Hidden until the script runs; the fields below work without it. #}
+{% macro locpick_point() %}
+<div class="locpick" data-locpick="point" data-lat="f-latitude" data-lon="f-longitude" data-prec="f-coord_precision" hidden>
+  <p class="label" id="lp-h">{{ _("Location on the map") }}</p>
+  <p class="help" id="lp-help">{{ _("Click the map where the place is, or drag the marker. Zoom in first for a more precise point. The coordinates fill in below, and you can still type or correct them. Then say how precise the location is.") }}</p>
+  <div class="locpick__map" role="group" aria-labelledby="lp-h" aria-describedby="lp-help"><span class="locpick__centre" aria-hidden="true"></span></div>
+  <p class="locpick__tools"><button class="btn btn-small btn-secondary" type="button" data-act="centre">{{ _("Put the point at the centre of the map") }}</button>
+    <button class="linkish" type="button" data-act="clear">{{ _("Remove the point") }}</button></p>
+  <p class="locpick__status" aria-live="polite"></p>
+  <div class="locpick__near" aria-live="polite"></div>
+</div>
+{% endmacro %}
+
+{% macro locpick_ref(name) %}
+<div class="locpick locpick--ref" data-locpick="ref" data-input="f-{{ name }}" hidden>
+  <button class="btn btn-small btn-secondary" type="button" data-act="toggle" aria-expanded="false" aria-controls="lp-{{ name }}">{{ _("Choose on the map") }}</button>
+  <div class="locpick__panel" id="lp-{{ name }}" hidden>
+    <p class="help">{{ _("Published places with documented coordinates are shown. Choose one, or click where it happened to see the nearest places. Places without coordinates can still be found by typing their name above.") }}</p>
+    <div class="locpick__map"></div>
+    <p class="locpick__status" aria-live="polite"></p>
+    <div class="locpick__near" aria-live="polite"></div>
+  </div>
+</div>
+{% endmacro %}
+
+{% macro locpick_assets(fields, self_id='') %}{% if fields|selectattr('name', 'equalto', 'latitude')|list or fields|selectattr('ref', 'equalto', 'place')|list %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/maplibre/maplibre-gl.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/locpick.css') }}">
+<div id="locpick-config" hidden data-self="{{ self_id }}"
+     data-lib="{{ url_for('static', filename='vendor/maplibre/maplibre-gl-csp.js') }}"
+     data-worker="{{ url_for('static', filename='vendor/maplibre/maplibre-gl-csp-worker.js') }}"
+     data-terrain="{{ url_for('static', filename='map/terrain') }}"
+     data-tile='{{ (config.MAP_TILE_URL or "")|tojson }}' data-tile-attribution='{{ (config.MAP_TILE_ATTRIBUTION or "")|tojson }}'
+     data-i18n='{{ {
+       "maplabel": _("Map for choosing a location. Use the arrow keys to move and + and − to zoom."),
+       "attribution": _("Base map: Natural Earth (public domain). Modern borders and regions only."),
+       "nopoint": _("No point chosen yet."),
+       "pointat": _("Point: latitude {lat}, longitude {lon}."),
+       "accuracy": _("At this zoom a click is accurate to about {d}."),
+       "askprecision": _("Now choose the coordinate precision below."),
+       "nearexisting": _("Already in the archive near this point. If it is the same place, suggest a correction to that record instead:"),
+       "away": _("{d} away"), "metres": _("{n} m"), "km": _("{n} km"),
+       "nowebgl": _("Your browser cannot show the map here. Type the coordinates or the place name instead."),
+       "error": _("The map could not be loaded. Type the place name instead."),
+       "loading": _("Loading the map…"),
+       "placesshown": _("{n} published places with documented coordinates are shown."),
+       "noplaces": _("No published place has documented coordinates yet. Type the place name above, or propose a new place."),
+       "choose": _("Choose {name}"), "chosen": _("Chosen: {name}."),
+       "isapprox": _("Its location is recorded as approximate."), "isregion": _("Only its region is recorded."),
+       "approx": _("approximate location"), "region": _("region only"),
+       "nearest": _("Nearest published places:"), "nonenear": _("No published place is recorded within 50 km of this point."),
+       "propose": _("Propose a new place at this point"),
+       "proposenote": _("(opens a new form in another tab; save it, then choose the new place here once it is published)")
+     }|tojson }}'></div>
+<script src="{{ url_for('static', filename='js/basemap.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/locpick.js') }}" defer></script>
+{% endif %}{% endmacro %}
+
+{% macro spec_field(f, values, errors, choices) %}
+{% set v = values.get(f.name, '') %}{% set err = errors.get(f.name) %}
+{% if f.name == 'latitude' %}{{ locpick_point() }}{% endif %}
+<div class="field{% if err %} has-error{% endif %}">
+  <label for="f-{{ f.name }}">{{ _(f.label) }}{% if f.required %} <span aria-hidden="true">*</span><span class="sr-only">({{ _("required") }})</span>{% endif %}</label>
+  {% set described %}{% if err %}e-{{ f.name }} {% endif %}{% if f.help %}h-{{ f.name }}{% endif %}{% endset %}
+  {% if f.kind in ('area', 'lines', 'sources') %}
+    <textarea id="f-{{ f.name }}" name="{{ f.name }}" dir="auto" rows="{{ f.rows if f.kind == 'area' else 3 }}" {% if f.required %}required{% endif %}
+      {% if described.strip() %}aria-describedby="{{ described.strip() }}"{% endif %} {% if err %}aria-invalid="true"{% endif %}>{{ v }}</textarea>
+  {% elif f.kind == 'refs' %}
+    <textarea id="f-{{ f.name }}" name="{{ f.name }}" rows="4" dir="auto" data-refs-target
+      {% if described.strip() %}aria-describedby="{{ described.strip() }}"{% endif %} {% if err %}aria-invalid="true"{% endif %}>{{ v }}</textarea>
+    <div class="refs-adder" hidden><label class="sr-only" for="f-{{ f.name }}-add">{{ _("Find a record to add") }}</label>
+      <input id="f-{{ f.name }}-add" type="text" list="dl-{{ f.name }}-add" data-lookup="any" data-refs-add="f-{{ f.name }}" autocomplete="off" dir="auto"
+        placeholder="{{ _('Type a name to find a record, then press Enter') }}"><datalist id="dl-{{ f.name }}-add"></datalist></div>
+  {% elif f.kind == 'consents' %}
+    <fieldset class="consents" id="f-{{ f.name }}" {% if err %}aria-invalid="true"{% endif %}>
+      <legend class="sr-only">{{ _(f.label) }}</legend>
+      {% for t, label in CONSENT_LABELS.items() %}<div class="check"><input type="checkbox" id="f-consent_{{ t }}" name="consent_{{ t }}" value="1" {% if values.get('consent_' ~ t) == '1' %}checked{% endif %}>
+        <label for="f-consent_{{ t }}">{{ _(label) }}</label></div>{% endfor %}
+      <div class="field"><label for="f-consent_note">{{ _("How was consent given, and where is the evidence kept?") }}</label>
+        <textarea id="f-consent_note" name="consent_note" rows="2" dir="auto">{{ values.get('consent_note', '') }}</textarea>
+        <div class="help">{{ _("For example: signed consent form dated 3 May, kept by the interviewer; or agreement recorded at the start of the interview.") }}</div></div>
+      <div class="check"><input type="checkbox" id="f-consent_declared" name="consent_declared" value="1" {% if values.get('consent_declared') == '1' %}checked{% endif %}>
+        <label for="f-consent_declared">{{ _("I confirm the interviewee (or, if they have died, their family) agreed to the uses ticked above, and that the evidence can be shown to the editors. Nothing is published until an editor has checked it.") }}</label></div>
+    </fieldset>
+  {% elif f.kind == 'ref' %}
+    <input id="f-{{ f.name }}" name="{{ f.name }}" type="text" value="{{ v }}" list="dl-{{ f.name }}" data-lookup="{{ f.ref }}"
+      autocomplete="off" dir="auto" {% if f.required %}required{% endif %}
+      {% if described.strip() %}aria-describedby="{{ described.strip() }}"{% endif %} {% if err %}aria-invalid="true"{% endif %}>
+    <datalist id="dl-{{ f.name }}">{% for val, label in choices[f.name] %}<option value="{{ label }}"></option>{% endfor %}</datalist>
+  {% elif f.kind in ('choice', 'taxon') %}
+    <select id="f-{{ f.name }}" name="{{ f.name }}" {% if f.required %}required{% endif %}
+      {% if described.strip() %}aria-describedby="{{ described.strip() }}"{% endif %} {% if err %}aria-invalid="true"{% endif %}>
+      {% if f.required %}<option value="">{{ _("Choose…") }}</option>{% endif %}
+      {% for val, label in choices[f.name] %}{% if not (f.required and val == '') %}<option value="{{ val }}" {% if val == v %}selected{% endif %}>{{ _(label) }}</option>{% endif %}{% endfor %}
+    </select>
+  {% else %}
+    <input id="f-{{ f.name }}" name="{{ f.name }}" type="{{ 'url' if f.kind == 'url' else 'text' }}" value="{{ v }}"
+      {% if f.kind in ('url', 'float', 'date') %}dir="ltr"{% else %}dir="auto"{% endif %}
+      {% if f.kind == 'float' %}inputmode="decimal"{% endif %} {% if f.required %}required{% endif %}
+      {% if described.strip() %}aria-describedby="{{ described.strip() }}"{% endif %} {% if err %}aria-invalid="true"{% endif %}>
+  {% endif %}
+  {% if f.help %}<div class="help" id="h-{{ f.name }}">{{ _(f.help) }}</div>{% endif %}
+  {% if err %}<div class="error-text" id="e-{{ f.name }}">{{ _(err) }}</div>{% endif %}
+  {% if f.kind == 'ref' and f.ref == 'place' %}{{ locpick_ref(f.name) }}{% endif %}
+</div>
+{% endmacro %}

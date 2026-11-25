@@ -1,0 +1,390 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, empty, fictional_badge %}
+{% from "_atlas.html" import mark, emark, certainty %}
+{% set titles = {'map': _("Historical map"), 'timeline': _("Timeline"), 'both': _("Historical atlas")} %}
+{% block title %}{{ titles[st.mode] }}{% endblock %}
+{% block body_attrs %} class="atlas-page{{ ' atlas-page--embed' if embed }}" data-mode="{{ st.mode }}"{% if embed %} data-embed{% endif %}{% endblock %}
+{% block meta %}<meta name="description" content="{{ _('An interactive map of places in the archive, built from documented coordinates only.') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/maplibre/maplibre-gl.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/atlas.css') }}">
+<script src="{{ url_for('static', filename='js/atlas-state.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/explore.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/map.js') }}" defer></script>
+<script src="{{ url_for('static', filename='js/timeline.js') }}" defer></script>{% endblock %}
+{% block robots %}{% if active or st.place or st.event or st.record %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+
+{% block content %}
+{% if not embed %}{{ breadcrumbs([('/', _('Home')), (request.path, titles[st.mode])]) }}{% endif %}
+<div class="atlas-top">
+  <div class="atlas-top__title"><span class="atlas-kicker">{{ _("Historical atlas") }}</span><h1 id="ex-title" data-titles='{{ titles|tojson }}'>{{ titles[st.mode] }}</h1></div>
+  <nav class="atlas-modes" id="ex-modes" aria-label="{{ _('View') }}">
+    {% for m, label in (('map', _("Map")), ('timeline', _("Timeline")), ('both', _("Map and timeline"))) %}
+    <a href="{{ nojs(mode=m) }}" data-mode="{{ m }}" class="atlas-mode atlas-mode--{{ m }}" {% if st.mode == m %}aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+  </nav>
+  {% if embed %}
+  <p class="atlas-top__lede">{{ _("From the ELF Digital Historical Archive.") }}
+    <a href="{{ full_url }}" target="_blank" rel="noopener">{{ _("Open the full archive in a new tab") }}</a></p>
+  {% else %}
+  <p class="atlas-top__lede">{{ _("Places and events from the archive, shown only where the records document them.") }}
+    {% if curated_n %}<a href="/explore/curated">{{ _("Curated explorations") }}</a>{% endif %}</p>
+  {% endif %}
+</div>
+{% if dropped %}<div class="notice notice--info" role="status"><p>{{ _("Part of this link refers to a record that is not public or no longer exists, so it was left out.") }}</p></div>{% endif %}
+
+{% set advanced = [st.region, st.at, st.person, st.organization, st.ptype, st.media]|select|list|length %}
+<form method="get" action="/explore" class="atlas-filterbar" id="ex-filters" role="search" aria-label="{{ _('Filters') }}">
+  <input type="hidden" name="mode" value="{{ st.mode }}">
+  {% for k in ('place', 'event', 'record') %}{% if st[k] %}<input type="hidden" name="{{ k }}" value="{{ st[k] }}" data-selection>{% endif %}{% endfor %}
+  <div class="atlas-filterbar__row">
+    <div class="atlas-fb atlas-fb--search"><label for="ex-q">{{ _("Search the atlas") }}</label>
+      <input id="ex-q" name="q" type="search" value="{{ st.q }}" dir="auto" autocomplete="off" placeholder="{{ _('Places, people, events…') }}" aria-describedby="ex-q-h">
+      <span class="sr-only" id="ex-q-h">{{ _("Place names on the map, event titles on the timeline, and below the map: people, events, organizations and archive records.") }}</span></div>
+    <div class="atlas-fb"><label for="ex-type">{{ _("Event type") }}</label><select id="ex-type" name="type"><option value="">{{ _("All types") }}</option>
+      {% for cat, label in event_categories.items() %}<optgroup label="{{ _(label) }}">{% for t in types if type_categories[t.slug] == cat %}<option value="{{ t.slug }}" {% if st.type == t.slug %}selected{% endif %}>{{ _(t.label) }}</option>{% endfor %}</optgroup>{% endfor %}</select></div>
+    <div class="atlas-fb atlas-fb--period"><span class="label" id="ex-period">{{ _("Period") }}</span>
+      <div class="tl-years" role="group" aria-labelledby="ex-period">
+        <label class="sr-only" for="ex-from">{{ _("From year") }}</label><input id="ex-from" name="from" type="number" inputmode="numeric" min="1000" max="2100" placeholder="{{ _('from') }}" value="{{ st['from'] or '' }}">
+        <span aria-hidden="true">–</span>
+        <label class="sr-only" for="ex-to">{{ _("To year") }}</label><input id="ex-to" name="to" type="number" inputmode="numeric" min="1000" max="2100" placeholder="{{ _('to') }}" value="{{ st.to or '' }}"></div></div>
+    <div class="atlas-fb atlas-fb--actions">
+      <button class="btn btn-small atlas-fb__submit" type="submit">{{ _("Filter") }}</button>
+      <a class="atlas-fb__clear" href="{{ clear_url }}" id="ex-clear" {% if not active %}hidden{% endif %}>{{ _("Clear filters") }}</a></div>
+  </div>
+  <details class="atlas-fb-more" id="ex-more" {% if advanced %}open{% endif %}>
+    <summary>{{ _("More filters") }} <span class="atlas-fb-count" id="ex-more-count" {% if not advanced %}hidden{% endif %}>{{ advanced }}</span></summary>
+    <div class="atlas-fb-more__grid">
+      <div class="field"><label for="ex-region">{{ _("Region") }}</label><select id="ex-region" name="region"><option value="">{{ _("All regions") }}</option>
+        {% for r in regions %}<option value="{{ r }}" {% if st.region == r %}selected{% endif %} dir="auto">{{ r }}</option>{% endfor %}</select></div>
+      {% for key, lk, label in (('at', 'place', _('Events at this place')), ('person', 'person', _('Person')), ('organization', 'organization', _('Organization'))) %}
+      <div class="field"><label for="ex-{{ key }}">{{ label }}</label>
+        <input id="ex-{{ key }}" name="{{ key }}" type="text" list="dl-ex-{{ key }}" data-lookup="{{ lk }}" autocomplete="off" dir="auto"
+               value="{{ (labels[st[key]] ~ ' [' ~ st[key] ~ ']') if st[key] else '' }}"><datalist id="dl-ex-{{ key }}"></datalist></div>
+      {% endfor %}
+      <div class="field"><label for="ex-ptype">{{ _("Place type (map)") }}</label><select id="ex-ptype" name="ptype"><option value="">{{ _("All types") }}</option>
+        {% for cat, label, ts in place_groups if ts %}<optgroup label="{{ _(label) }}">
+          <option value="cat:{{ cat }}" {% if st.ptype == 'cat:' ~ cat %}selected{% endif %}>{{ _("All: {category}", category=_(label)) }}</option>
+          {% for t in ts %}<option value="{{ t.slug }}" {% if st.ptype == t.slug %}selected{% endif %}>{{ _(t.label) }}</option>{% endfor %}</optgroup>{% endfor %}</select></div>
+      <div class="check"><input type="checkbox" id="ex-media" name="media" value="1" {% if st.media %}checked{% endif %}><label for="ex-media">{{ _("Only records with photographs, documents or oral histories") }}</label></div>
+    </div>
+  </details>
+</form>
+<ul class="atlas-chips" id="ex-chips" aria-label="{{ _('Active filters') }}" hidden></ul>
+
+<section class="tl-context ex-period" id="ex-pctx" aria-labelledby="pctx-h" hidden
+         data-i18n='{{ {
+           "kicker": _("This period in the records"), "title": _("{from} – {to}"),
+           "count": _("{n} dated events"), "count1": _("1 dated event"),
+           "uncertain": _("{n} of them with an approximate or decade-only date"),
+           "types": _("Kinds of event"), "events": _("Most documented events"), "eventsnote": _("by number of cited sources"),
+           "places": _("Places most often linked"), "people": _("People most often linked"), "families": _("Families of those people"),
+           "collections": _("Archive collections"), "sources": _("Sources most often cited"),
+           "times": _("{n}×"), "timeline": _("See these events on the timeline"), "onmap": _("Show this place on the map"),
+           "note": _("A count of published records only. It is not a complete history of the period."),
+           "none": _("No published events with a documented date fall in this period.")
+         }|tojson }}'></section>
+<section class="tl-context" id="ex-context" aria-labelledby="ctx-h" {% if not place_ctx %}hidden{% endif %}>
+  {% if place_ctx %}
+  <span class="atlas-kicker">{{ _("Events at this place") }} · {{ _(place_ctx.type_label) }}</span>
+  <h2 id="ctx-h" dir="auto">{{ place_ctx.title }}</h2>
+  <p class="tl-context__meta">{% if place_ctx.region %}<span dir="auto">{{ place_ctx.region }}</span> · {% endif %}
+    {% if place_ctx.lat is not none %}{{ _("Approximate location") if place_ctx.precision == 'approximate' else _("Region only") if place_ctx.precision == 'region_centroid' else _("Documented location") }}{% else %}{{ _("No documented coordinates") }}{% endif %}</p>
+  {% if place_ctx.summary %}<p dir="auto">{{ place_ctx.summary }}</p>{% endif %}
+  <p class="atlas-links">{% if place_ctx.lat is not none %}<a href="{{ nojs(mode='map', place=st.at) }}" data-act="ctx-map">{{ _("Show this place on the map") }}</a>{% endif %}
+    <a href="{{ place_ctx.url }}">{{ _("Open the place page") }}</a>
+    <a href="{{ nojs(at='') }}" data-act="ctx-clear">{{ _("Show events at all places") }}</a></p>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block stage %}
+<div class="explore" id="explore"
+     data-state='{{ st|tojson }}' data-labels='{{ labels|tojson }}'
+     data-i18n='{{ {
+       "chip_q": _("Search: {v}"), "chip_type": _("Event type: {v}"), "chip_period": _("Period: {v}"), "chip_region": _("Region: {v}"),
+       "chip_at": _("Events at: {v}"), "chip_person": _("Person: {v}"), "chip_org": _("Organization: {v}"), "chip_ptype": _("Place: {v}"),
+       "chip_media": _("With photographs, documents or oral histories"), "removefilter": _("Remove filter: {v}"), "period": _("{from} – {to}"),
+       "ctx_kicker": _("Events at this place"), "ctx_map": _("Show this place on the map"), "ctx_open": _("Open the place page"),
+       "ctx_clear": _("Show events at all places"), "documented": _("Documented location"), "approximate": _("Approximate location"),
+       "region": _("Region only"), "nocoords": _("No documented coordinates"), "gone": _("That record is not available.")
+     }|tojson }}'>
+
+  <section class="atlas" id="atlas" aria-labelledby="map-h"
+           data-lib="{{ url_for('static', filename='vendor/maplibre/maplibre-gl-csp.js') }}"
+           data-worker="{{ url_for('static', filename='vendor/maplibre/maplibre-gl-csp-worker.js') }}"
+           data-terrain="{{ url_for('static', filename='map/terrain') }}" {% if can_review %}data-review{% endif %}
+           data-tile='{{ (tile or "")|tojson }}' data-tile-attribution='{{ (tile_attribution or "")|tojson }}'
+           data-i18n='{{ {
+             "loading": _("Loading the map…"), "loadingterrain": _("Loading terrain…"),
+             "error": _("The map could not be loaded. Use the list of places below."),
+             "nowebgl": _("Your browser cannot draw the 3D map, so a simplified flat map is shown. Every place is also listed below."),
+             "noterrain": _("Elevation data could not be loaded, so the map is shown flat."),
+             "lost": _("The 3D map stopped working on this device, so a simplified flat map is shown."),
+             "shown": _("{n} of {total} mapped places shown."), "none": _("No places match these filters."),
+             "nomapped": _("No published place has documented coordinates yet. Coordinates are added only from sources, never estimated silently."),
+             "approx": _("Approximate location: this is not an established exact point."),
+             "centroid": _("Shown at the centre of its region: the exact location is not documented."),
+             "exact": _("Documented location"), "outside": _("This place is outside the current filters."),
+             "events": _("Events here"), "more": _("{n} more on the timeline"),
+             "noevents": _("No published events are linked to this place yet."),
+             "people": _("People"), "orgs": _("Organizations"), "photos": _("Archive materials"),
+             "names": _("Other names"), "valid": _("Dates of this place"), "summary": _("About this place"),
+             "locsources": _("Sources for this location"),
+             "nolocsource": _("No source is cited specifically for this location. See the place page for all sources."),
+             "open": _("Open the place page"), "openrecord": _("Open the full record"), "timeline": _("Explore this place on the timeline"),
+             "back": _("All places"), "backto": _("Back to {title}"), "close": _("Close"),
+             "cluster": _("{n} places here. Zoom in to see them."),
+             "uncertainplace": _("the event's link to this place is uncertain"), "uncertain": _("uncertain"),
+             "onmap": _("On the map"), "choose": _("This record is linked to several places. Choose one:"),
+             "noplace": _("No place with documented coordinates is recorded for this record, so it is not shown on the map."),
+             "unmapped": _("{n} more linked places have no documented coordinates."),
+             "found": _("Other records"), "searching": _("Searching…"), "nofound": _("No other records match."),
+             "fictional": _("Fictional test record"), "loadingrecord": _("Loading…"), "gone": _("That record is not available."),
+             "attribution": _("Base map: Natural Earth (public domain). Modern borders and regions only; no historical boundaries are drawn."),
+             "terrain": _("Terrain: Terrain Tiles (SRTM, GMTED2010, ETOPO1), via AWS Open Data. Sea floor simplified."),
+             "maplabel": _("Interactive map of Eritrea. Use the arrow keys to move and + and − to zoom. Each place marker can be reached with the Tab key."),
+             "period": _("{from} – {to}"), "allperiods": _("All periods"),
+             "fromyear": _("Start of period"), "toyear": _("End of period"),
+             "ribbonempty": _("No dated events are linked to mapped places yet."),
+             "ribbonlabel": _("Events at mapped places, by year: {n} dated events between {from} and {to}."),
+             "swatchprecise": _("Exact date or year"), "swatchrange": _("Documented date range"),
+             "swatchuncertain": _("Approximate or decade only"), "intimeline": _("Show on the timeline"),
+             "nodate": _("Date unknown"), "by": _("By {name}"), "openitem": _("Open the archive record"),
+             "copylink": _("Copy a link to this view"), "copied": _("Link copied."),
+             "disputedloc": _("Sources disagree about where this place is"), "disputedshort": _("sources disagree about the location"),
+             "families": _("Families"), "familymember1": _("1 member documented here"), "familymembers": _("{n} members documented here"),
+             "collections": _("Archive collections"), "history": _("Explore this place's history"),
+             "photoslink": _("Photographs and documents ({n})"), "sourceslink": _("Read the sources ({n})"),
+             "noproposals": _("No proposed places are awaiting review."), "awaitingreview": _("Awaiting review (visible to editors only)"),
+             "proposedplace": _("Proposed: {name}"), "proposedchange": _("Proposed location change: {name}"),
+             "categories": category_labels_tr
+           }|tojson }}'>
+    <h2 id="map-h" class="sr-only">{{ _("Interactive map") }}</h2>
+    <div class="atlas-panel" id="atlas-panel">
+      <div id="atlas-browse">
+        <p class="atlas-status"><span id="map-status" aria-live="polite"></span>
+          <button class="linkish" type="button" id="map-fit">{{ _("Fit to results") }}</button></p>
+        <h3 class="atlas-label" id="results-h">{{ _("Places on the map") }}</h3>
+        <ul class="atlas-results" id="atlas-results" aria-labelledby="results-h"></ul>
+        <section class="atlas-found" id="atlas-found" aria-labelledby="found-h" hidden>
+          <h3 class="atlas-label" id="found-h">{{ _("Other records") }}</h3>
+          <ul class="atlas-results" id="atlas-found-list"></ul>
+        </section>
+      </div>
+      <section class="atlas-detail" id="atlas-detail" aria-label="{{ _('Selected record') }}" hidden></section>
+    </div>
+    <div class="atlas-view" id="atlas-view">
+      <div id="map" class="atlas-map"></div>
+      <div class="atlas-fallback" id="atlas-fallback" role="status"><p><span class="atlas-loader" aria-hidden="true"></span><span>{{ _("The interactive map needs JavaScript. All places are listed below.") }}</span></p></div>
+      <p class="atlas-toast" id="atlas-toast" role="status" hidden></p>
+      <div class="atlas-controls" id="atlas-controls" hidden>
+        <div class="atlas-controls__group">
+          <button class="atlas-ctrl" type="button" data-act="zoom-in" aria-label="{{ _('Zoom in') }}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg></button>
+          <button class="atlas-ctrl" type="button" data-act="zoom-out" aria-label="{{ _('Zoom out') }}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg></button>
+        </div>
+        <div class="atlas-controls__group">
+          <button class="atlas-ctrl" type="button" data-act="terrain" aria-pressed="true" title="{{ _('3D terrain') }}">3D</button>
+          <button class="atlas-ctrl" type="button" data-act="north" aria-label="{{ _('Face north and look straight down') }}" title="{{ _('Face north') }}"><svg class="atlas-compass" viewBox="0 0 20 20" aria-hidden="true"><path d="M10 2.5l2.6 7.5h-5.2z" fill="currentColor"/><path d="M10 17.5l-2.6-7.5h5.2z"/><text x="10" y="8.6" text-anchor="middle" class="atlas-compass__n">N</text></svg></button>
+          <button class="atlas-ctrl" type="button" data-act="reset" aria-label="{{ _('Show all of Eritrea') }}" title="{{ _('Show all of Eritrea') }}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M3.5 9.5 10 4l6.5 5.5"/><path d="M5.5 8v8h9V8"/><path d="M8.5 16v-4h3v4"/></svg></button>
+          <button class="atlas-ctrl" type="button" data-act="fullscreen" aria-pressed="false" aria-label="{{ _('Full screen') }}" title="{{ _('Full screen') }}" hidden><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M7 3H3v4M13 3h4v4M7 17H3v-4M13 17h4v-4"/><path d="M7 7l-4-4M13 7l4-4M7 13l-4 4M13 13l4 4"/></svg></button>
+        </div>
+        <div class="atlas-controls__group atlas-layers">
+          <button class="atlas-ctrl" type="button" data-act="layers" aria-expanded="false" aria-controls="atlas-layer-menu" aria-label="{{ _('Map layers') }}" title="{{ _('Map layers') }}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 3l7 4-7 4-7-4z"/><path d="M3 11l7 4 7-4"/></svg></button>
+          <div class="atlas-layers__menu" id="atlas-layer-menu" hidden>
+            <p class="atlas-label">{{ _("Archive places") }}</p>
+            <label><input type="checkbox" data-layer="evplaces" checked> {{ _("Places with documented events") }}</label>
+            <label><input type="checkbox" data-layer="otherplaces" checked> {{ _("Other places in the archive") }}</label>
+            <p class="atlas-layers__note">{{ _("Only published places with documented coordinates. Many places in the records have no coordinates yet, so the map is not a complete record.") }}</p>
+            {% if can_review %}<label><input type="checkbox" data-layer="proposals"> {{ _("Proposed places awaiting review") }}</label>
+            <p class="atlas-layers__note">{{ _("Visible to editors only. Each opens its review page.") }}</p>{% endif %}
+            <p class="atlas-label">{{ _("Reference geography") }}</p>
+            <label><input type="checkbox" data-layer="regions" checked> {{ _("Current administrative regions") }}</label>
+            <label><input type="checkbox" data-layer="towns" checked> {{ _("Present-day towns (reference)") }}</label>
+            <label><input type="checkbox" data-layer="rivers" checked> {{ _("Rivers") }}</label>
+            <label><input type="checkbox" data-layer="relief" checked> {{ _("Relief shading") }}</label>
+            {% if tile %}<label><input type="checkbox" data-layer="street"> {{ _("Street map") }}</label>{% endif %}
+            <p class="atlas-layers__note">{{ _("Historical routes and boundaries are not shown: the archive does not yet hold sourced data for them.") }}</p>
+          </div>
+        </div>
+      </div>
+      <details class="atlas-legend" id="atlas-legend">
+        <summary>{{ _("Legend") }}</summary>
+        <div class="atlas-legend__body">
+          <p class="atlas-label">{{ _("Archive places: shape shows the kind of place") }}</p>
+          <ul>{% for cat, label in category_labels.items() %}<li>{{ mark(cat, 'exact', 18) }} {{ _(label) }}</li>{% endfor %}</ul>
+          <p class="atlas-label">{{ _("Outline shows how precisely the location is known") }}</p>
+          <ul>
+            <li>{{ mark('settlement', 'exact', 22) }} {{ _("Documented location") }}</li>
+            <li>{{ mark('settlement', 'approximate', 26) }} {{ _("Approximate location") }}</li>
+            <li>{{ mark('settlement', 'region_centroid', 30) }} {{ _("Region only") }}</li>
+            <li><span class="atlas-legend__disputed">{{ mark('settlement', 'exact', 22) }}<svg class="atlas-disputed" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true" focusable="false"><path d="M6 1.5A4.5 4.5 0 0 0 6 10.5"/><path d="M7.5 1.8A4.5 4.5 0 0 1 7.5 10.2"/></svg></span> {{ _("Sources disagree about the location") }}</li>
+          </ul>
+          <p class="atlas-label">{{ _("Modern reference geography") }}</p>
+          <ul>
+            <li><span class="atlas-glyph atlas-glyph--town" aria-hidden="true"></span> {{ _("Present-day town (reference, not an archive record)") }}</li>
+            <li><span class="atlas-glyph atlas-glyph--region" aria-hidden="true"></span> {{ _("Current administrative region") }}</li>
+          </ul>
+          <p class="atlas-legend__note">{{ _("Base map: Natural Earth (public domain). It shows modern borders and the current administrative regions only. No historical boundaries are drawn, because no licensed, sourced dataset of them is available.") }}
+            {{ _("Elevation detail is about 300 m; in 3D the relief is raised 1.3 times so the highlands stay readable.") }}</p>
+        </div>
+      </details>
+    </div>
+    <section class="atlas-ribbon" id="atlas-ribbon" aria-labelledby="ribbon-h">
+      <div class="atlas-ribbon__head">
+        <h3 class="atlas-label" id="ribbon-h">{{ _("Period") }}</h3>
+        <span class="atlas-ribbon__range" id="ribbon-range">{{ _("All periods") }}</span>
+        <button class="btn btn-small btn-secondary" type="button" id="ribbon-timeline">{{ _("Open this period in the timeline") }}</button>
+      </div>
+      <div id="ribbon-body"><p class="atlas-ribbon__empty">{{ _("The period ribbon needs JavaScript. Use the year fields in the filters, or the timeline.") }}</p></div>
+    </section>
+  </section>
+
+  <section class="tl-scope" id="tl-scope" aria-labelledby="scope-h"
+           data-i18n='{{ {
+             "months": [_("January"), _("February"), _("March"), _("April"), _("May"), _("June"), _("July"), _("August"), _("September"), _("October"), _("November"), _("December")],
+             "categories": event_categories_tr,
+             "loading": _("Loading the timeline…"), "error": _("The timeline could not be loaded. The list below shows every event."),
+             "count": _("{n} matching events"), "count1": _("1 matching event"),
+             "undated": _("{n} more without a documented date, listed below"),
+             "none": _("No events match these filters."), "noneall": _("No events have been published yet. The timeline is built only from reviewed event records."),
+             "inview": _("{from} – {to}: {n} events in view"), "inview1": _("{from} – {to}: 1 event in view"),
+             "uncertainview": _("{n} with an approximate or decade-only date"),
+             "more": _("{n} more events here. Zoom in to separate them."),
+             "within": _("Somewhere within this span"), "disputed": _("Sources disagree about the date"),
+             "open": _("Open the full record"), "onmap": _("Show on the map"), "close": _("Close"),
+             "places": _("Places"), "people": _("People"), "orgs": _("Organizations"),
+             "noplace": _("No place is documented for this event."),
+             "nolocation": _("The location of this event has not been established, so it is not shown on the map."),
+             "unmapped": _("no documented coordinates"),
+             "approx": _("approximate location"), "region": _("region only"), "uncertainlink": _("link uncertain"),
+             "placeevents": _("Events at this place"), "deselected": _("The selected event does not match the current filters, so it is no longer selected."),
+             "showin": _("Show in the timeline"), "fictional": _("Fictional test record"),
+             "undatedh": _("Events with undocumented dates"),
+             "undatednote": _("These events have no documented date, so they are not placed on the timeline."),
+             "related": _("Related records"), "photos": _("Photographs and documents"), "sources": _("Sources"),
+             "nodate": _("Date unknown"), "by": _("By {name}"), "copylink": _("Copy a link to this view"), "copied": _("Link copied."),
+             "photoslink": _("Photographs and documents ({n})"), "sourceslink": _("Read the sources ({n})"),
+             "loadingrecord": _("Loading…")
+           }|tojson }}'>
+    <h2 id="scope-h" class="sr-only">{{ _("Interactive timeline") }}</h2>
+    <div class="tl-toolbar">
+      <div><p class="tl-summary" id="tl-summary" aria-live="polite"></p><p class="chrono-count" id="tl-count" aria-live="polite"></p></div>
+      <div class="tl-buttons" role="group" aria-label="{{ _('Move and zoom the timeline') }}">
+        <button class="atlas-ctrl" type="button" data-act="earlier" aria-label="{{ _('Earlier') }}" title="{{ _('Earlier') }}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M12 4 6 10l6 6"/></svg></button>
+        <button class="atlas-ctrl" type="button" data-act="later" aria-label="{{ _('Later') }}" title="{{ _('Later') }}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="m8 4 6 6-6 6"/></svg></button>
+        <button class="atlas-ctrl" type="button" data-act="zoom-in" aria-label="{{ _('Zoom in') }}" title="{{ _('Zoom in') }}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M10 4v12M4 10h12"/></svg></button>
+        <button class="atlas-ctrl" type="button" data-act="zoom-out" aria-label="{{ _('Zoom out') }}" title="{{ _('Zoom out') }}"><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4 10h12"/></svg></button>
+        <button class="btn btn-small btn-secondary" type="button" data-act="all">{{ _("Whole timeline") }}</button>
+        <button class="btn btn-small btn-secondary" type="button" data-act="use-period">{{ _("Use this view as the period") }}</button>
+      </div>
+    </div>
+    <div class="tl-body">
+      <div class="tl-stage">
+        <p class="sr-only" id="tl-help">{{ _("Event markers are buttons in date order. Use Tab to move between them, or the arrow keys to go to the previous or next event; + and − zoom.") }}</p>
+        <div class="tl-track" id="tl-track" role="group" aria-label="{{ _('Events in date order') }}" aria-describedby="tl-help">
+          <div class="tl-band" id="tl-band" aria-hidden="true" hidden></div>
+          <div class="tl-axis" id="tl-axis" aria-hidden="true"></div>
+          <div class="tl-marks" id="tl-marks"></div>
+        </div>
+        <div class="tl-overview" id="tl-overview" aria-hidden="true"></div>
+        <ul class="tl-legend" aria-label="{{ _('Legend') }}">
+          {% for cat, label in event_categories.items() %}<li>{{ emark(cat, 14) }} {{ _(label) }}</li>{% endfor %}
+          <li><span class="tl-key tl-key--point" aria-hidden="true"></span> {{ _("Exact day") }}</li>
+          <li><span class="tl-key tl-key--span" aria-hidden="true"></span> {{ _("Month, year or range: somewhere within the bar") }}</li>
+          <li><span class="tl-key tl-key--uncertain" aria-hidden="true"></span> {{ _("Approximate or decade only") }}</li>
+          <li><span class="tl-key tl-key--disputed" aria-hidden="true"></span> {{ _("Sources disagree about the date") }}</li>
+        </ul>
+      </div>
+      <aside class="tl-card" id="tl-card" aria-label="{{ _('Selected event') }}" hidden></aside>
+    </div>
+  </section>
+</div>
+{% endblock %}
+
+{% block after_stage %}
+<div class="container">
+<div class="ex-maplists">
+<section aria-labelledby="list-h">
+<h2 id="list-h">{{ _("Places with documented coordinates") }}</h2>
+{% if located %}
+<div class="table-wrap"><table>
+  <caption class="sr-only">{{ _("Places with coordinates") }}</caption>
+  <thead><tr><th scope="col">{{ _("Place") }}</th><th scope="col">{{ _("Region") }}</th><th scope="col">{{ _("Coordinates") }}</th><th scope="col">{{ _("Precision") }}</th></tr></thead>
+  <tbody>{% for p in located %}<tr>
+    <td><a href="{{ record_url('place', p.slug) }}" dir="auto">{{ p.primary_name }}</a>{{ fictional_badge(p.is_fictional_test) }}</td>
+    <td dir="auto">{{ p.admin_region or p.country or '—' }}</td>
+    <td dir="ltr">{{ '%.4f'|format(p.latitude) }}, {{ '%.4f'|format(p.longitude) }}</td>
+    <td>{{ _(p.coord_precision.replace('_', ' ')|capitalize) }}</td></tr>{% endfor %}</tbody>
+</table></div>
+{% else %}
+  {{ empty(_("No published place has documented coordinates yet. Coordinates are added only from sources, never estimated silently.")) }}
+{% endif %}
+</section>
+{% if unlocated %}
+<section aria-labelledby="unl-h">
+<h2 id="unl-h">{{ _("Places without documented coordinates") }}</h2>
+<ul class="plain-list">{% for p in unlocated %}<li><a href="{{ record_url('place', p.slug) }}" dir="auto">{{ p.primary_name }}</a>{{ fictional_badge(p.is_fictional_test) }}{% if p.admin_region %} <span class="small muted" dir="auto">{{ p.admin_region }}</span>{% endif %}</li>{% endfor %}</ul>
+</section>
+{% endif %}
+</div>
+
+<div class="ex-tllists">
+<h2 class="sr-only">{{ _("Events in chronological order") }}</h2>
+<div class="chrono-main" id="tl-list-server">
+  {% if ruler %}
+  {% set W = (ruler.hi - ruler.lo + 1) * 10 %}
+  <figure class="chrono-ruler" id="tl-ruler">
+    <figcaption><span class="atlas-label">{{ _("Events by year") }}</span>
+      <span class="chrono-count">{{ _("{n} dated events between {from} and {to}.", n=ruler.n, **{'from': ruler.lo, 'to': ruler.hi}) }}</span></figcaption>
+    <svg viewBox="0 0 {{ W }} 52" preserveAspectRatio="none" role="img" aria-label="{{ _('Events by year: {n} dated events between {from} and {to}.', n=ruler.n, **{'from': ruler.lo, 'to': ruler.hi}) }}">
+      <defs><pattern id="atlas-hatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="4" class="hatch-line"/></pattern></defs>
+      {% for b in ruler.bars %}{% set x = (b.year - ruler.lo) * 10 %}{% set ns = namespace(y=46) %}
+        {% for k in ('precise', 'range', 'uncertain') %}{% if b[k] %}{% set hgt = [2, (b[k] / ruler.peak * 42)|round(1)]|max %}{% set ns.y = ns.y - hgt %}
+        <rect class="bar-{{ k }}" {% if k == 'uncertain' %}fill="url(#atlas-hatch)" {% endif %}x="{{ x + 1.5 }}" y="{{ ns.y }}" width="7" height="{{ hgt }}"/>{% endif %}{% endfor %}
+      {% endfor %}
+      <rect class="bar-base" x="0" y="46" width="{{ W }}" height="1"/>
+      {% for d in ruler.decades %}<line class="tick" x1="{{ (d.start - ruler.lo) * 10 }}" y1="46" x2="{{ (d.start - ruler.lo) * 10 }}" y2="52"/>{% endfor %}
+    </svg>
+    <div class="chrono-axis" aria-hidden="true">{% for d in ruler.decades %}<span>{{ d.start }}</span>{% endfor %}</div>
+    <nav aria-label="{{ _('Jump to decade') }}"><ul class="chrono-decades">
+      {% for d in ruler.decades if d.count %}<li><a href="#d{{ d.label }}">{{ d.label }}<span class="n">{{ d.count }}</span></a></li>{% endfor %}
+      {% if undated %}<li><a href="#undated">{{ _("Undated") }}<span class="n">{{ undated|length }}</span></a></li>{% endif %}
+    </ul></nav>
+  </figure>
+  {% endif %}
+  {% for decade, evs in groups %}
+    <h2 class="chrono-decade" id="d{{ decade }}" dir="ltr">{{ decade }} <small>{{ _("1 event") if evs|length == 1 else _("{n} events", n=evs|length) }}</small></h2>
+    <ol class="chrono-list">
+      {% for ev in evs %}
+      <li class="chrono-event">
+        <div class="chrono-when">{{ certainty(ev) }}</div>
+        <div class="chrono-body">
+          {% if ev.type_label %}<div class="chrono-type"><a href="{{ nojs(type=ev.type_slug) }}">{{ _(ev.type_label) }}</a></div>{% endif %}
+          <h3><a href="{{ record_url('event', ev.slug) }}" dir="auto">{{ ev.title }}</a>{{ fictional_badge(ev.is_fictional_test) }}</h3>
+          {% if ev.summary %}<p class="chrono-summary" dir="auto">{{ ev.summary[:260] }}</p>{% endif %}
+          {% if ev.places %}<ul class="chrono-places" aria-label="{{ _('Places') }}">
+            {% for p in ev.places %}<li><a href="{{ record_url('place', p.slug) }}" dir="auto">{{ p.primary_name }}</a>{% if p.is_uncertain %} <span class="small muted">({{ _("uncertain") }})</span>{% endif %}
+              {% if p.mapped %}<a class="on-map" href="{{ nojs(mode='map', event=ev.public_id, place=p.public_id) }}">{{ _("on the map") }}</a>{% endif %}</li>{% endfor %}
+          </ul>{% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  {% endfor %}
+  {% if undated %}
+  <section class="chrono-undated" aria-labelledby="undated">
+    <h2 id="undated">{{ _("Events with undocumented dates") }}</h2>
+    <p class="small muted">{{ _("These events have no documented date, so they are not placed on the time ruler.") }}</p>
+    <ul>{% for ev in undated %}<li><a href="{{ record_url('event', ev.slug) }}" dir="auto">{{ ev.title }}</a>{{ fictional_badge(ev.is_fictional_test) }}</li>{% endfor %}</ul>
+  </section>
+  {% endif %}
+  {% if lpages > 1 %}<nav class="pager" aria-label="{{ _('More events') }}"><p class="small">
+    {% for n in range(1, lpages + 1) %}{% if n == lpage %}<strong aria-current="page">{{ n }}</strong>{% else %}<a href="{{ nojs() }}&amp;lpage={{ n }}">{{ n }}</a>{% endif %} {% endfor %}</p></nav>{% endif %}
+  {% if want_list and not groups and not undated %}
+    {% if active %}{{ empty(_("No events match these filters."), clear_url, _("Clear filters")) }}
+    {% else %}{{ empty(_("No events have been published yet. The timeline is built only from reviewed event records."), "/how-to-contribute", _("How to contribute")) }}{% endif %}
+  {% endif %}
+</div>
+<div class="chrono-main" id="tl-list" hidden></div>
+</div>
+</div>
+{% endblock %}

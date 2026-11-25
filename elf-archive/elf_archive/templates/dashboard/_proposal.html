@@ -1,0 +1,14 @@
+{# Shows what a submission proposes. Expects: s, and either diff (corrections) or rows (new records). #}
+{% if diff is defined and diff %}
+<div class="table-wrap"><table><caption class="sr-only">{{ _("Proposed changes") }}</caption>
+  <thead><tr><th scope="col">{{ _("Field") }}</th><th scope="col">{{ _("Current") }}</th><th scope="col">{{ _("Proposed") }}</th></tr></thead>
+  <tbody>{% for d in diff %}<tr><th scope="row">{{ _(d.label) }}</th>
+    <td>{% if d.additive %}<span class="muted">({{ _("added to existing") }})</span>{% else %}<span class="diff-old" dir="auto">{{ d.old }}</span>{% endif %}</td>
+    <td class="diff-new" dir="auto">{{ d.new }}</td></tr>{% endfor %}</tbody></table></div>
+{% elif diff is defined %}
+<p class="muted">{{ _("No changes to the record's details. This correction adds photos only.") }}</p>
+{% elif rows is defined %}
+<dl class="meta">{% for label, val in rows %}<dt>{{ _(label) }}</dt><dd class="prose" dir="auto">{{ val }}</dd>{% endfor %}</dl>
+{% endif %}
+{% if s.contributor_note %}<h3>{{ _("Contributor's explanation") }}</h3><p class="prose" dir="auto">{{ s.contributor_note }}</p>{% endif %}
+{% if s.rights_note %}<h3>{{ _("Source and rights information") }}</h3><p class="prose" dir="auto">{{ s.rights_note }}</p>{% endif %}

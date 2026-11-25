@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, pagination, fictional_badge %}
+{% block title %}{% if q %}{{ _("Search") }}: {{ q }}{% else %}{{ _("Search") }}{% endif %}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/search', _('Search')]]) }}
+<h1>{{ _("Search the archive") }}</h1>
+<form method="get" action="/search" role="search" class="stack">
+  <div class="field"><label for="q">{{ _("Name, place, event or keyword") }}</label>
+    <input id="q" type="search" name="q" value="{{ q }}" dir="auto" aria-describedby="q-help">
+    <div class="help" id="q-help">{{ _("Searches every published name, alias, transliteration and historical place name. Partial words work: “ghebr” finds “Ghebreab”.") }}</div></div>
+  <div class="field"><label for="type">{{ _("Record type") }}</label>
+    <select id="type" name="type"><option value="">{{ _("All types") }}</option>
+      {% for k in kinds %}<option value="{{ k }}" {% if k == kind %}selected{% endif %}>{{ kind_label(k) }}</option>{% endfor %}</select></div>
+  <button class="btn" type="submit">{{ _("Search") }}</button>
+</form>
+
+{% if res %}
+<section aria-labelledby="res-h" aria-live="polite">
+  <h2 id="res-h">{{ (res.total == 1 ? _("1 result for “{q}”", q=q) : _("{n} results for “{q}”", n=res.total, q=q)) }}</h2>
+  {% for r in res.results %}
+  <article class="result">
+    <h3 dir="auto"><a href="{{ record_url(r.kind, r.slug) }}">{{ r.title }}</a>{{ fictional_badge(r.fictional) }}</h3>
+    <p class="small"><span class="badge">{{ kind_label(r.kind) }}</span>{% if r.context %} · <span dir="auto">{{ r.context }}</span>{% endif %}
+      {% if r.matched_name %} · <span class="muted">{{ _("Matched name:") }} <span dir="auto">{{ r.matched_name }}</span></span>{% endif %}</p>
+    {% if r.summary %}<p class="small" dir="auto">{{ r.summary }}</p>{% endif %}
+  </article>
+  {% endfor %}
+  {% if res.total == 0 %}
+    <div class="empty">
+      <p>{{ _("No published records match “{q}”.", q=q) }}</p>
+      {% if res.suggestions %}<p>{{ _("Did you mean:") }}
+        {% for s in res.suggestions %}<a href="/search?q={{ s.name|urlencode }}" dir="auto">{{ s.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}?</p>{% endif %}
+      <p class="small">{{ _("Try a shorter part of the name, another spelling or transliteration, or remove the type filter. Records that are still under review are not searchable.") }}</p>
+    </div>
+  {% endif %}
+  {{ pagination(res.page, res.total, res.per_page) }}
+</section>
+{% endif %}
+{% endblock %}

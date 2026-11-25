@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ _(title) }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>{{ _(title) }}</h1>
+<p class="lede">{{ _(text) }}</p>
+<p class="muted">{{ _("Error {code}.", code=code) }}</p>
+<p class="row"><a class="btn btn-secondary" href="/">{{ _("Go to the home page") }}</a> <a href="/search">{{ _("Search the archive") }}</a>
+{% if code in (401, 403) and not current_user %} <a href="/auth/login?next={{ request.path }}">{{ _("Sign in") }}</a>{% endif %}</p>
+{% endblock %}

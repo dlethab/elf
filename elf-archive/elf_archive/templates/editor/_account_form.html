@@ -1,0 +1,16 @@
+{# Expects: a (row or None), action, needs_reason, e #}
+{% set k = a.id if a else 'new' %}
+<form method="post" action="{{ action }}" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="anchor" value="#accounts">
+  <div class="field"><label for="at-{{ k }}">Topic (what the accounts disagree about)</label><input id="at-{{ k }}" name="topic" type="text" value="{{ a.topic if a else '' }}" required></div>
+  <div class="field"><label for="ax-{{ k }}">The account</label><textarea id="ax-{{ k }}" name="account_text" rows="3" dir="auto" required>{{ a.account_text if a else '' }}</textarea></div>
+  <div class="field"><label for="aa-{{ k }}">Attributed to (witness, author or tradition)</label><input id="aa-{{ k }}" name="attributed_to" type="text" value="{{ (a.attributed_to or '') if a else '' }}"></div>
+  <div class="field"><label for="as-{{ k }}">Source, if any</label><input id="as-{{ k }}" name="source" type="text" list="dl-src" data-lookup="source" autocomplete="off"
+    value="{{ (a.source_title ~ ' [' ~ a.source_pid ~ ']') if a and a.source_pid else '' }}"></div>
+  <div class="field"><label for="ab-{{ k }}">Basis for this version / editorial explanation</label><textarea id="ab-{{ k }}" name="basis_note" rows="2">{{ (a.basis_note or '') if a else '' }}</textarea></div>
+  <div class="check"><input type="checkbox" id="ad-{{ k }}" name="concerns_date" value="1" {% if a and a.concerns_date %}checked{% endif %}><label for="ad-{{ k }}">This disagreement is about the date (the timeline will show that sources disagree)</label></div>
+  {% if e.kind == 'place' %}<div class="check"><input type="checkbox" id="al-{{ k }}" name="concerns_location" value="1" {% if a and a.concerns_location %}checked{% endif %}><label for="al-{{ k }}">This disagreement is about where the place is (the map will show that sources disagree about its location)</label></div>{% endif %}
+  <div class="check"><input type="checkbox" id="ar-{{ k }}" name="needs_research" value="1" {% if a and a.needs_research %}checked{% endif %}><label for="ar-{{ k }}">Further research is needed</label></div>
+  <div class="check"><input type="checkbox" id="ap-{{ k }}" name="is_public" value="1" {% if a and a.is_public %}checked{% endif %}><label for="ap-{{ k }}">Show on the public record page</label></div>
+  {% if needs_reason %}<div class="field"><label for="arr-{{ k }}">Reason for the change (kept in the audit log)</label><input id="arr-{{ k }}" name="reason" type="text" required></div>{% endif %}
+  <button class="btn btn-small {{ 'btn-secondary' if a else '' }}" type="submit">{{ 'Save account' if a else 'Record account' }}</button>
+</form>

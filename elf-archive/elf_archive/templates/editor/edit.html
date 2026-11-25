@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, errors_summary, spec_field, locpick_assets %}
+{% block title %}Edit: {{ title }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/editor', 'Editorial'), ('/editor/records/' ~ e.public_id, title), (request.path, 'Edit')]) }}
+<h1>Edit: {{ title }}</h1>
+<p class="lede">Your changes are applied immediately and recorded in the record's history with your reason. Names and sources you add are kept alongside the existing ones. To link this record to others, use the contribution forms or the links section on the staff page.</p>
+{{ errors_summary(errors) }}
+<form method="post" novalidate data-warn-unsaved>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <fieldset><legend>{{ kind_label(e.kind) }}</legend>
+    {% for f in fields %}{% if f.kind != 'consents' %}{{ spec_field(f, values, errors, choices) }}{% endif %}{% endfor %}
+  </fieldset>
+  <div class="field{% if errors.reason %} has-error{% endif %}"><label for="f-reason">Reason for this change (required, kept in the history)</label>
+    <input id="f-reason" name="reason" type="text" value="{{ reason }}" required>
+    {% if errors.reason %}<div class="error-text">{{ errors.reason }}</div>{% endif %}</div>
+  <div class="form-actions"><button class="btn" type="submit">Save changes</button> <a href="/editor/records/{{ e.public_id }}">Cancel</a></div>
+</form>
+{{ locpick_assets(fields, e.public_id) }}
+{% endblock %}

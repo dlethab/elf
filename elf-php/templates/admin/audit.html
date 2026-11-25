@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% from "_macros.html" import pagination %}
+{% block title %}Audit log{% endblock %}
+{% block content %}
+<h1>Audit log</h1>
+{% include "admin/_nav.html" %}
+<p class="muted">{{ total }} entries. The audit log is append-only: the database refuses edits and deletions.</p>
+<form method="get" class="row"><label for="ac" class="sr-only">Action starts with</label><input id="ac" type="search" name="action" value="{{ action }}" placeholder="e.g. role., submission., record."><button class="btn btn-small btn-secondary" type="submit">Filter</button></form>
+<div class="table-wrap"><table><thead><tr><th scope="col">When (UTC)</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">Target</th><th scope="col">Detail</th><th scope="col">Network</th></tr></thead>
+<tbody>{% for a in rows %}<tr><td>{{ a.created_at[:19]|replace({'T': ' '}) }}</td><td>{{ (a.username ?: '—') }}</td><td>{{ a.action }}</td><td>{{ (a.target_type ?: '') }} {{ (a.target_id ?: '') }}</td><td class="small">{{ (a.detail_json ?: '') }}</td><td class="small">{{ (a.ip ?: '') }}</td></tr>{% endfor %}</tbody></table></div>
+{{ pagination(page, total, 100) }}
+{% endblock %}

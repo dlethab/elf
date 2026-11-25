@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, citations_block, accounts_block, record_footer, evidence_badge, empty, photos_block %}
+{% block title %}{{ p.preferred_name }}{% endblock %}
+{% block meta %}<meta name="description" content="{{ (p.summary or (_('Archive record for {name}', name=p.preferred_name)))[:160] }}">
+<link rel="canonical" href="{{ base_url }}{{ record_url('person', e.slug) }}">
+<meta property="og:title" content="{{ p.preferred_name }}"><meta property="og:type" content="profile">{% endblock %}
+{% block robots %}{% if e.is_fictional_test %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/people', _('People')), (request.path, p.preferred_name)]) }}
+{% with kicker=_('Person'), title=p.preferred_name, original=p.original_name, original_lang=p.original_name_lang %}{% include "records/_head.html" %}{% endwith %}
+<div class="two-col">
+  <div>
+    <div class="profile">
+    {% if portrait %}
+    <figure class="profile__photo">
+      <a href="{{ record_url('archive_item', portrait.slug) }}">
+        <img src="{{ media_url(portrait.display_key or portrait.thumb_key) }}" alt="{{ portrait.title }}" loading="eager" decoding="async">
+      </a>
+      <figcaption>
+        <span class="profile__caption" dir="auto">{{ portrait.title }}</span>
+        <span class="small muted">{{ item_type_label(portrait.item_type) }} · {% if portrait.created_precision not in (none, 'unknown') %}{{ fdate(portrait.created_start, portrait.created_end, portrait.created_precision) }}{% else %}{{ _("Date unknown") }}{% endif %}</span>
+        {% if portrait.creator or portrait.rights_holder %}<span class="small muted" dir="auto">{% if portrait.creator %}{{ _("By {name}", name=portrait.creator) }}{% endif %}{% if portrait.creator and portrait.rights_holder %} · {% endif %}{% if portrait.rights_holder %}© {{ portrait.rights_holder }}{% endif %}</span>{% endif %}
+        <a class="small" href="{{ record_url('archive_item', portrait.slug) }}">{{ _("Open the archive record") }}</a>
+      </figcaption>
+    </figure>
+    {% else %}
+    <div class="profile__photo profile__photo--none">
+      <span class="profile__none-icon" aria-hidden="true"></span>
+      <p class="small">{{ _("No photograph of this person is in the archive yet.") }}</p>
+      <p class="small"><a href="/contribute/correction/{{ e.public_id }}">{{ _("Add a photograph") }}</a></p>
+    </div>
+    {% endif %}
+    <div class="profile__facts">
+    {% if p.summary %}<p class="lede" dir="auto">{{ p.summary }}</p>{% endif %}
+    <dl class="meta" aria-label="{{ _('Key facts') }}">
+      {% if p.full_name %}<dt>{{ _("Full name") }}</dt><dd dir="auto">{{ p.full_name }}</dd>{% endif %}
+      <dt>{{ _("Born") }}</dt><dd>{{ fdate(p.birth_start, p.birth_end, p.birth_precision) }}{% if p.birth_precision not in ('unknown', 'exact') %} <span class="small muted">({{ precision_note(p.birth_precision) }})</span>{% endif %}
+        {% if birth_place %} · <a href="{{ record_url('place', birth_place.slug) }}" dir="auto">{{ birth_place.primary_name }}</a>{% endif %}</dd>
+      {% if p.living_status == 'deceased' or p.death_precision != 'unknown' %}
+      <dt>{{ _("Died") }}</dt><dd>{{ fdate(p.death_start, p.death_end, p.death_precision) }}{% if death_place %} · <a href="{{ record_url('place', death_place.slug) }}" dir="auto">{{ death_place.primary_name }}</a>{% endif %}</dd>
+      {% endif %}
+      {% if p.occupation %}<dt>{{ _("Occupation") }}</dt><dd dir="auto">{{ p.occupation }}</dd>{% endif %}
+    </dl>
+    </div>
+    </div>
+
+    <section aria-labelledby="bio-h">
+      <h2 id="bio-h">{{ _("Biography") }}</h2>
+      {% if p.biography %}<div class="prose" dir="auto">{{ p.biography }}</div>{% else %}<p class="muted">{{ _("Not yet documented.") }}</p>{% endif %}
+    </section>
+
+    {{ photos_block(photos) }}
+
+    <section aria-labelledby="fam-h">
+      <h2 id="fam-h">{{ _("Family connections") }}</h2>
+      {% if relationships or families %}
+        {% if relationships %}<ul class="plain-list">{% for r in relationships %}
+          <li>{{ _(r.label) }} <a href="{{ r.url }}" dir="auto">{{ r.name }}</a>
+            {% if r.status in ('uncertain', 'disputed') %} <span class="badge ev-disputed">{{ _(r.status|capitalize) }}</span>{% endif %}
+            {% if r.period_precision != 'unknown' %}<span class="small muted"> · {{ fdate(r.period_start, r.period_end, r.period_precision) }}</span>{% endif %}
+            {% if r.notes %}<div class="small muted" dir="auto">{{ r.notes }}</div>{% endif %}</li>{% endfor %}</ul>{% endif %}
+        {% if families %}<p>{{ _("Family records:") }} {% for f in families %}<a href="{{ record_url('family', f.slug) }}" dir="auto">{{ f.display_name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}</p>{% endif %}
+      {% else %}<p class="muted">{{ _("No documented family connections have been published.") }}</p>{% endif %}
+      <p class="row small"><a href="{{ record_url('person', e.slug) }}/tree">{{ _("Family tree") }}</a> · <a href="{{ record_url('person', e.slug) }}/connections">{{ _("All documented connections") }}</a>{% if events or birth_place %} · <a href="/map?person={{ e.public_id }}">{{ _("Places on the map") }}</a>{% endif %}</p>
+    </section>
+
+    <section aria-labelledby="aff-h">
+      <h2 id="aff-h">{{ _("Affiliations and roles") }}</h2>
+      {% if affiliations %}<ul class="plain-list">{% for a in affiliations %}
+        <li><a href="{{ record_url('organization', a.slug) }}" dir="auto">{{ a.name }}</a>{% if a.role %} — <span dir="auto">{{ a.role }}</span>{% endif %}
+          <span class="small muted">{% if a.period_precision != 'unknown' %} · {{ fdate(a.period_start, a.period_end, a.period_precision) }}{% else %} · {{ _("dates not documented") }}{% endif %}{% if a.place_slug %} · <a href="{{ record_url('place', a.place_slug) }}" dir="auto">{{ a.place_name }}</a>{% endif %}</span>
+          {{ evidence_badge(a.evidence_status) }}
+          {% if a.notes %}<div class="small muted" dir="auto">{{ a.notes }}</div>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ _("No organizational affiliations have been published.") }}</p>{% endif %}
+      <p class="small"><a href="/contribute/affiliation?person={{ e.public_id }}">{{ _("Propose an affiliation") }}</a> · <a href="/contribute/participation?person={{ e.public_id }}">{{ _("Propose an event this person took part in") }}</a></p>
+    </section>
+
+    <section aria-labelledby="ev-h">
+      <h2 id="ev-h">{{ _("Associated events") }}</h2>
+      {% if events %}<ul class="plain-list">{% for ev in events %}
+        <li><a href="{{ record_url('event', ev.slug) }}" dir="auto">{{ ev.title }}</a> <span class="small muted">{{ fdate(ev.date_start, ev.date_end, ev.date_precision) }}</span>
+          {% if ev.role %}<div class="small">{{ _("Role:") }} <span dir="auto">{{ ev.role }}</span> {{ evidence_badge(ev.evidence_status) }}</div>{% endif %}</li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ _("No associated events have been published.") }}</p>{% endif %}
+    </section>
+
+    {{ accounts_block(accts) }}
+    {{ citations_block(cites) }}
+  </div>
+  <aside>
+    {{ record_footer(e, revisions) }}
+  </aside>
+</div>
+{% endblock %}

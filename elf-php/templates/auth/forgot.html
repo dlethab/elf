@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% from "_macros.html" import input %}
+{% block title %}{{ _("Reset your password") }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>{{ _("Reset your password") }}</h1>
+<p>{{ _("Enter the email address of your account. If it exists, we will send a link that is valid for one hour.") }}</p>
+<form method="post" action="/auth/forgot">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ input('email', _('Email address'), type='email', required=true, autocomplete='email') }}
+  <button class="btn" type="submit">{{ _("Send reset link") }}</button>
+</form>
+{% endblock %}

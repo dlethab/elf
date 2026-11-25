@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, errors_summary, input %}
+{% block title %}{{ _("Suggest an interview") }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/oral-histories', _('Oral Histories')], [request.path, _('Suggest an interview')]]) }}
+<h1>{{ _("Suggest an interview") }}</h1>
+<p class="lede">{{ _("Tell us about someone whose testimony should be preserved, or offer your own. An editor will reply. Nothing is recorded or published without the interviewee's own agreement to each use.") }}</p>
+{{ errors_summary(errors) }}
+<form method="post" action="/oral-histories/request" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ input('name', _('Your name (optional)'), values.name, errors=errors, autocomplete='name') }}
+  {{ input('email', _('Your email address'), values.email, type='email', errors=errors, required=true, autocomplete='email', help=_('Only the editors see it, to reply to you.')) }}
+  {{ input('interviewee', _('Who would be interviewed? (it may be you)'), values.interviewee, errors=errors) }}
+  {{ input('connection', _('Their connection to these events, briefly'), values.connection, errors=errors) }}
+  {{ input('language', _('Language(s) they would like to speak'), values.language, errors=errors) }}
+  <div class="field{% if errors.message %} has-error{% endif %}"><label for="f-message">{{ _("Anything else we should know") }} <span aria-hidden="true">*</span></label>
+    <textarea id="f-message" name="message" rows="5" dir="auto" required {% if errors.message %}aria-invalid="true" aria-describedby="e-message"{% endif %}>{{ values.message }}</textarea>
+    {% if errors.message %}<div class="error-text" id="e-message">{{ _(errors.message) }}</div>{% endif %}</div>
+  <p class="small">{{ _("Please do not include anyone's home address or other private details. We will ask for what we need.") }}</p>
+  <div class="hp" aria-hidden="true"><label for="f-website">{{ _("Leave this empty") }}</label><input id="f-website" name="website" tabindex="-1" autocomplete="off"></div>
+  <button class="btn" type="submit">{{ _("Send") }}</button>
+</form>
+{% endblock %}

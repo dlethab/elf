@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs %}
+{% block title %}{{ _("Community rules") }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/community', _('Community')), ('/community/rules', _('Community rules'))]) }}
+<h1>{{ _("Community rules") }}</h1>
+<div class="notice notice--info"><p>{{ _("Draft rules prepared with the software. The archive's governing body should review and adopt them.") }}</p></div>
+<div class="prose-block">
+<p>{{ _("This forum exists to preserve and discuss history together. People here may have lived through painful events, lost relatives, or remember them differently. Please write with care.") }}</p>
+<ol>
+  <li>{{ _("Be respectful. Disagree with accounts and interpretations, not with people. No insults, harassment or abuse, including about anyone's political history, organization, region, religion or language.") }}</li>
+  <li>{{ _("Protect privacy. Do not post anyone's private information without their permission: addresses, phone numbers, documents, photographs of living people, or details of their family, health or location.") }}</li>
+  <li>{{ _("No threats or incitement. Threats of violence, or calls for it, are removed and reported to the administrators.") }}</li>
+  <li>{{ _("Say how you know. Distinguish what you saw yourself, what you were told, and what you have read. Name your sources when you can.") }}</li>
+  <li>{{ _("Respect differing accounts. Memories and sources often disagree. Present your account; do not demand that others accept it.") }}</li>
+  <li>{{ _("Respect copyright. Only share photographs and documents you are allowed to share, and say where they come from.") }}</li>
+  <li>{{ _("No spam or advertising.") }}</li>
+</ol>
+<h2>{{ _("How moderation works") }}</h2>
+<p>{{ _("Anyone signed in can report a post. Moderators review reports and may hide or remove posts, lock or hide topics, send a warning, or pause a member's posting for a time. Every moderation action and its reason is recorded. Serious matters, such as threats or the exposure of private information, are passed to the administrators. If you think a decision was wrong, use the contact form.") }}</p>
+<h2>{{ _("The forum and the archive") }}</h2>
+<p>{{ _("Forum posts are not archive records. If a discussion contains information that should be preserved, propose it as a contribution: it will then be checked by an editor like any other.") }}</p>
+</div>
+{% endblock %}

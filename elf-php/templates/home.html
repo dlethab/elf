@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty, tile %}
+{% block title %}{{ _(site_name) }}{% endblock %}
+{% block content %}
+<section class="hero" aria-labelledby="hero-h">
+  <h1 id="hero-h">{{ _("Preserving the people, families and places of Eritrea's independence struggle") }}</h1>
+  <p>{{ _("A connected, searchable archive centred on the Eritrean Liberation Front: biographies, family histories, places, events, documents and testimony, each linked to the others and to its sources.") }}</p>
+  <p class="row">
+    <a class="btn" href="/people">{{ _("Explore the archive") }}</a>
+    <a class="btn btn-secondary" href="/map">{{ _("Historical map") }}</a>
+    <a href="/how-to-contribute">{{ _("Contribute a record, photo or correction") }}</a>
+  </p>
+</section>
+
+<section aria-labelledby="explore-h">
+  <h2 id="explore-h">{{ _("Explore by category") }}</h2>
+  {% set c = counts %}
+  <ul class="grid">
+    {% for _t31 in [
+      ['/people', _('People'), 'person', _('Biographies, names and aliases, roles and family connections.')],
+      ['/families', _('Families'), 'family', _('Family histories, members and documented relationships.')],
+      ['/places', _('Places'), 'place', _('Towns, villages and regions with their historical names.')],
+      ['/events', _('Historical events'), 'event', _('Events with honest dates, places and participants.')],
+      ['/timeline', _('Timeline'), null, _('Events in chronological order; undated events listed separately.')],
+      ['/organizations', _('Organizations'), 'organization', _('Movements and organizations, with documented members and roles over time.')],
+      ['/sources', _('Sources'), 'source', _('Books, records and testimony cited across the archive.')],
+      ['/archive', _('Photographs and documents'), 'archive_item', _('Photographs contributed by families and researchers, shown only with the right permissions.')],
+      ['/oral-histories', _('Oral histories'), 'oral_history', _("Recorded testimony, published only with the interviewee's consent for each use.")],
+    ] %}{% set href = _t31[0] %}{% set label = _t31[1] %}{% set kind = _t31[2] %}{% set text = _t31[3] %}
+    <li><a class="card card-link" href="{{ href }}"><h3>{{ label }}</h3><p class="small">{{ text }}</p>
+      {% if kind %}<p class="small muted">{{ ((c[kind] ?? 0) == 1 ? _("1 published record") : _("{n} published records", n=(c[kind] ?? 0))) }}</p>{% endif %}</a></li>
+    {% endfor %}
+  </ul>
+</section>
+
+<section aria-labelledby="tl-h">
+  <h2 id="tl-h">{{ _("From the timeline") }}</h2>
+  {% if events %}
+    <ul class="timeline">
+    {% for ev in events %}<li><div class="when">{{ fdate(ev.date_start, ev.date_end, ev.date_precision) }}</div>
+      <a href="{{ record_url('event', ev.slug) }}" dir="auto">{{ ev.title }}</a>{% if ev.summary %}<div class="small muted" dir="auto">{{ ev.summary[:160] }}</div>{% endif %}</li>{% endfor %}
+    </ul>
+    <p><a href="/timeline">{{ _("See the full timeline") }}</a></p>
+  {% else %}
+    {{ empty(_("No events have been published yet. Milestones appear here only after editorial review."), "/how-to-contribute", _("How to contribute")) }}
+  {% endif %}
+</section>
+
+{% if featured %}
+<section aria-labelledby="fc-h">
+  <h2 id="fc-h">{{ _("Featured collections") }}</h2>
+  <ul class="grid">{% for c in featured %}<li class="card"><a class="card-link" href="{{ record_url('collection', c.row.slug) }}">
+    <span class="gallery">{{ tile(c.cover) }}</span><h3 dir="auto">{{ c.row.title }}</h3>
+    <p class="small muted">{{ (c.count == 1 ? _("1 item") : _("{n} items", n=c.count)) }}</p></a></li>{% endfor %}</ul>
+  <p><a href="/collections">{{ _("All collections") }}</a></p>
+</section>
+{% endif %}
+
+<section aria-labelledby="contrib-h">
+  <h2 id="contrib-h">{{ _("Help preserve this history") }}</h2>
+  <p>{{ _("Share a family history or photograph, add a person or place, cite a source, or correct an existing record. Every contribution is reviewed by an editor before it is published, and information about living people is kept private unless consent is confirmed.") }}</p>
+  <p class="row"><a class="btn" href="{{ (current_user ? '/dashboard' : '/auth/register') }}">{{ (current_user ? _('Go to your dashboard') : _('Create an account to contribute')) }}</a>
+    <a href="/standards">{{ _("Our source standards") }}</a> · <a href="/privacy">{{ _("Privacy principles") }}</a> · <a href="/corrections">{{ _("Correction process") }}</a></p>
+</section>
+{% endblock %}

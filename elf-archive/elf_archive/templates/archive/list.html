@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, pagination, empty, fictional_badge, tile %}
+{% block title %}{{ _("Digital Archive") }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/archive', _('Digital Archive'))]) }}
+<h1>{{ _("Digital Archive") }}</h1>
+<p class="lede">{{ _("Photographs, documents and recordings contributed to the archive. Each one has been reviewed by an editor and is shown only when its rights allow public display.") }}</p>
+<p class="row"><a class="btn btn-secondary btn-small" href="/collections">{{ _("Browse collections") }}</a> <a class="btn btn-secondary btn-small" href="/oral-histories">{{ _("Oral histories") }}</a></p>
+<p class="muted">{{ _("1 published record") if total == 1 else _("{n} published records", n=total) }}. <a href="/search?type=archive_item">{{ _("Search this section") }}</a></p>
+{% if rows %}
+<ul class="gallery gallery--large">
+  {% for r in rows %}
+  <li><a href="{{ record_url('archive_item', r.slug) }}">{{ tile(r) }}
+    <span class="caption" dir="auto">{{ r.title }}</span></a>{{ fictional_badge(r.is_fictional_test) }}
+    <span class="small muted">{{ item_type_label(r.item_type) }}{% if r.created_precision != 'unknown' %} · {{ fdate(r.created_start, r.created_end, r.created_precision) }}{% endif %}</span></li>
+  {% endfor %}
+</ul>
+{{ pagination(page, total, per_page) }}
+{% else %}
+  {{ empty(_("No photographs have been published yet. Contributors can add photos to their submissions; they appear here after editorial review."), "/how-to-contribute", _("How to contribute")) }}
+{% endif %}
+
+{% endblock %}

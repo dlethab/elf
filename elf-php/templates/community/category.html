@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, empty, pagination %}
+{% block title %}{{ _(cat.title) }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/community', _('Community')], [request.path, _(cat.title)]]) }}
+<h1>{{ _(cat.title) }}</h1>
+<p class="lede">{{ _(cat.description) }}</p>
+<p>{% if can_post[0] %}<a class="btn" href="/community/c/{{ cat.slug }}/new">{{ _("Start a topic") }}</a>
+  {% elseif not current_user %}<a href="/auth/login?next={{ request.path }}">{{ _("Sign in to take part") }}</a>
+  {% else %}<span class="muted">{{ _(can_post[1]) }}</span>{% endif %}</p>
+{% if rows %}
+<div class="table-wrap"><table><caption class="sr-only">{{ _("Topics") }}</caption>
+  <thead><tr><th scope="col">{{ _("Topic") }}</th><th scope="col">{{ _("Started by") }}</th><th scope="col">{{ _("Replies") }}</th><th scope="col">{{ _("Last post") }}</th></tr></thead>
+  <tbody>{% for t in rows %}<tr><td>{% if t.is_pinned %}<span class="badge">{{ _("Pinned") }}</span> {% endif %}<a href="/community/topics/{{ t.slug }}" dir="auto">{{ t.title }}</a>
+    {% if t.status == 'locked' %} <span class="badge">{{ _("Locked") }}</span>{% elseif t.status == 'archived' %} <span class="badge">{{ _("Archived") }}</span>{% elseif t.status == 'hidden' %} <span class="badge badge--rejected">{{ _("Hidden") }}</span>{% endif %}</td>
+    <td>{% if t.anonymized_at %}{{ _("Former member") }}{% else %}<a href="/community/users/{{ t.author_username }}" dir="auto">{{ t.author }}</a>{% endif %}</td>
+    <td>{{ t.replies }}</td><td>{{ ((t.last_post_at ?: t.created_at))[:10] }}</td></tr>{% endfor %}</tbody></table></div>
+{{ pagination(page, total, per_page) }}
+{% else %}{{ empty(_("No topics in this category yet.")) }}{% endif %}
+{% endblock %}

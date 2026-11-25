@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}Curated explorations{% endblock %}
+{% block content %}
+<h1>Curated explorations</h1>
+{% include "editor/_nav.html" %}
+<p class="lede">A curated exploration is a saved selection of reviewed records about a period, a region or a theme, shown in the historical atlas with your description, your name and its sources. Visitors only ever see the records that are public at the time.</p>
+{% if rows %}
+<div class="table-wrap"><table><thead><tr><th scope="col">Exploration</th><th scope="col">Period</th><th scope="col">Records</th><th scope="col">Status</th><th scope="col">Updated</th></tr></thead>
+  <tbody>{% for r in rows %}<tr><td><a href="/editor/explorations/{{ r.id }}" dir="auto">{{ r.title }}</a></td>
+    <td dir="ltr">{{ (r.period_from ?: '') }}{% if (r.period_from ?: r.period_to) %} – {% endif %}{{ (r.period_to ?: '') }}</td><td>{{ r.n }}</td>
+    <td>{% if r.is_published %}<a href="/explore/curated/{{ r.slug }}">Published</a>{% else %}Draft{% endif %}</td><td dir="ltr">{{ r.updated_at[:10] }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}{{ empty("No curated explorations yet.") }}{% endif %}
+<h2>New exploration</h2>
+{% include "editor/_exploration_form.html" %}
+{% endblock %}

@@ -1,0 +1,47 @@
+{% extends "base.html" %}
+{% block title %}Administration{% endblock %}
+{% block content %}
+<h1>Administration</h1>
+{% include "admin/_nav.html" %}
+{% if stats.fictional %}<div class="notice notice--fictional"><p>This database contains {{ stats.fictional }} fictional test {{ 'record' if stats.fictional == 1 else 'records' }}. Production databases must contain none.</p></div>{% endif %}
+<h2>Editorial work</h2>
+<ul class="grid">
+  {% for key, label, href in [('pending', 'Submissions awaiting review', '/editor?tab=new'), ('awaiting_publication', 'Approved, awaiting publication', '/editor?tab=approved'),
+                              ('pending_corrections', 'Pending corrections', '/editor?kind=correction'), ('messages_new', 'New contact messages', '/editor/messages')] %}
+  <li class="card stat"><strong>{{ stats[key] }}</strong><a href="{{ href }}">{{ label }}</a></li>{% endfor %}
+</ul>
+<h2>Data quality</h2>
+<ul class="grid">
+  {% for key, label in [('public_records', 'Public records'), ('restricted_records', 'Restricted or private records'),
+                        ('no_citations', 'Public records without any citation'), ('unknown_dates_events', 'Public events with undocumented dates'),
+                        ('places_no_coords', 'Public places without coordinates'), ('living_restricted', 'Living people kept restricted')] %}
+  <li class="card stat"><strong>{{ stats[key] }}</strong>{{ label }}</li>{% endfor %}
+</ul>
+<p class="small muted">These are prompts for investigation, not errors. Undocumented dates and coordinates are correct when the evidence does not exist.</p>
+<h2>Media, rights and consent</h2>
+<ul class="grid">
+  <li class="card stat"><strong>{{ stats.media_files }}</strong>Original media files ({{ '%.1f' % (stats.media_bytes / 1048576) }} MB stored, including derivatives)</li>
+  <li class="card stat"><strong>{{ stats.media_failed }}</strong>Media files that failed processing</li>
+  <li class="card stat"><strong>{{ stats.items_rights_unknown }}</strong><a href="/editor/quality">Archive items with unknown rights</a></li>
+  <li class="card stat"><strong>{{ stats.oral_no_consent }}</strong>Oral histories without publication consent on record</li>
+  <li class="card stat"><strong>{{ stats.oral_embargoed }}</strong>Oral histories under embargo</li>
+</ul>
+<h2>Community</h2>
+<ul class="grid">
+  <li class="card stat"><strong>{{ stats.reports_open }}</strong><a href="/moderation">Open forum reports</a></li>
+  <li class="card stat"><strong>{{ stats.reports_escalated }}</strong><a href="/moderation">Reports escalated to administrators</a></li>
+</ul>
+<h2>Accounts and system</h2>
+<ul class="grid">
+  {% for key, label in [('users', 'Active accounts'), ('unverified', 'Unverified email addresses'), ('outbox_unsent', 'Emails waiting to be sent'), ('outbox_failed', 'Emails that failed to send'), ('staff_without_mfa', 'Staff accounts without two-step sign-in')] %}
+  <li class="card stat"><strong>{{ stats[key] }}</strong>{{ label }}</li>{% endfor %}
+  <li class="card stat"><strong>{{ stats.last_backup[:10] if stats.last_backup else 'Never' }}</strong>Last backup made with <code>flask backup</code></li>
+  <li class="card stat"><strong>{{ stats.last_export[:10] if stats.last_export else 'Never' }}</strong><a href="/admin/export">Last public data export</a></li>
+</ul>
+{% if not stats.last_backup %}<div class="notice notice--error"><p>No backup has been recorded. Schedule the backup described in <code>docs/OPERATIONS.md</code> before the archive goes live.</p></div>{% endif %}
+{% if stats.outbox_unsent %}<p class="small">Queued email is delivered by running <code>flask --app elf_archive send-email</code> once SMTP is configured.</p>{% endif %}
+<h2>Recent activity</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">When</th><th scope="col">Who</th><th scope="col">Action</th><th scope="col">Target</th></tr></thead>
+<tbody>{% for a in recent %}<tr><td>{{ a.created_at[:16].replace('T', ' ') }}</td><td>{{ a.username or '—' }}</td><td>{{ a.action }}</td><td>{{ a.target_type or '' }} {{ a.target_id or '' }}</td></tr>{% endfor %}</tbody></table></div>
+<p><a href="/admin/audit">Full audit log</a></p>
+{% endblock %}

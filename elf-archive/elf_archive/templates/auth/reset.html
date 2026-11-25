@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import errors_summary, input %}
+{% block title %}{{ _("Choose a new password") }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>{{ _("Choose a new password") }}</h1>
+{{ errors_summary(errors) }}
+{% if errors.form %}
+  <p><a href="/auth/forgot">{{ _("Request a new reset link") }}</a></p>
+{% else %}
+<form method="post" action="/auth/reset/{{ token }}" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ input('password', _('New password'), type='password', errors=errors, required=True, autocomplete='new-password', help=_('At least 10 characters.')) }}
+  {{ input('password2', _('Repeat new password'), type='password', errors=errors, required=True, autocomplete='new-password') }}
+  <button class="btn" type="submit">{{ _("Change password") }}</button>
+</form>
+{% endif %}
+{% endblock %}

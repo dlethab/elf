@@ -1,0 +1,17 @@
+{% extends "pages/_info.html" %}
+{% block body %}
+<p>{{ _("The archive aims to meet WCAG 2.2 level AA.") }}</p>
+<h2>{{ _("What is in place") }}</h2>
+<ul>
+  <li>{{ _("Every page works with a keyboard, with a visible focus indicator and a “Skip to content” link.") }}</li>
+  <li>{{ _("Pages use semantic headings, landmarks, labelled form fields and error messages linked to their fields.") }}</li>
+  <li>{{ _("Record status and evidence level are always written in text, never shown by colour alone.") }}</li>
+  <li>{{ _("The interface is available in English, Tigrinya and Arabic, with right-to-left layout for Arabic. Text in other scripts is marked with its direction so names display correctly.") }}</li>
+  <li>{{ _("The map, family trees and connection diagrams each have a list or table alternative, and can be used with the keyboard.") }}</li>
+  <li>{{ _("Recordings are shown with transcripts where they exist and the interviewee has agreed.") }}</li>
+  <li>{{ _("The site follows your system's dark-mode and reduced-motion settings, and its pages work without JavaScript.") }}</li>
+</ul>
+<h2>{{ _("Known gaps") }}</h2>
+<p>{{ _("Pages are checked automatically with an accessibility scanner, but a full independent audit with disabled users has not yet been carried out. Some recordings have no transcript, and video captions are not yet supported.") }}</p>
+<p>{{ _("If something does not work for you, please tell us.") }} <a href="/contact">{{ _("Contact") }}</a></p>
+{% endblock %}

@@ -1,0 +1,10 @@
+<nav aria-label="Editorial"><ul class="tabs">
+  <li><a href="/editor" {% if request.path == '/editor' %}aria-current="page"{% endif %}>Queue</a></li>
+  <li><a href="/editor/records" {% if (request.path starts with '/editor/records') %}aria-current="page"{% endif %}>All records</a></li>
+  <li><a href="/editor/duplicates" {% if ((request.path starts with '/editor/duplicates') ?: (request.path starts with '/editor/merge')) %}aria-current="page"{% endif %}>Duplicates</a></li>
+  <li><a href="/editor/collections" {% if (request.path starts with '/editor/collections') %}aria-current="page"{% endif %}>Collections</a></li>
+  <li><a href="/editor/explorations" {% if (request.path starts with '/editor/explorations') %}aria-current="page"{% endif %}>Explorations</a></li>
+  <li><a href="/editor/import"{% if (request.path starts with '/editor/import') %}aria-current="page"{% endif %}>Import</a></li>
+  <li><a href="/editor/quality" {% if (request.path starts with '/editor/quality') %}aria-current="page"{% endif %}>Data quality</a></li>
+  <li><a href="/editor/messages" {% if (request.path starts with '/editor/messages') %}aria-current="page"{% endif %}>Messages</a></li>
+</ul></nav>

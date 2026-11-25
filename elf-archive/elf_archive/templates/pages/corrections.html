@@ -1,0 +1,10 @@
+{% extends "pages/_info.html" %}
+{% block body %}
+<p class="lede">{{ _("If a published record is wrong or incomplete, you can propose a correction. Corrections go through the same editorial review as new records.") }}</p>
+<h2>{{ _("With an account") }}</h2>
+<p>{{ _("Open the record and choose “Suggest a correction or add a photo”. You will see the current values, can change what is wrong, and can add sources. The editor sees exactly what you changed, side by side with the current record.") }}</p>
+<h2>{{ _("Without an account") }}</h2>
+<p>{{ _("Use the contact form. Every record page links to it with the record's permanent ID filled in.") }} <a href="/contact">{{ _("Contact") }}</a></p>
+<h2>{{ _("Removal and restriction requests") }}</h2>
+<p>{{ _("Rights holders, subjects of records and their families can ask for material to be corrected, restricted or removed. Requests are reviewed by the editorial team and each decision is recorded in the archive's audit log.") }}</p>
+{% endblock %}

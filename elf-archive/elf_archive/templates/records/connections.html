@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, empty, fictional_notice %}
+{% block title %}{{ _("Connections: {name}", name=title) }}{% endblock %}
+{% block meta %}<link rel="canonical" href="{{ base_url }}{{ record_url('person', e.slug) }}/connections">
+<script src="{{ url_for('static', filename='js/graph.js') }}" defer></script>{% endblock %}
+{% block robots %}{% if e.is_fictional_test %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/people', _('People')), (record_url('person', e.slug), title), (request.path, _('Connections'))]) }}
+{{ fictional_notice(e.is_fictional_test) }}
+<h1 dir="auto">{{ _("Connections: {name}", name=title) }}</h1>
+<p class="lede">{{ _("Every line stands for a published record: a relationship, a family record, an event, an organization, a place or a photograph. Sharing a town, an event or an organization does not mean that two people knew each other; each connection says exactly what is documented.") }}</p>
+<p><a href="{{ record_url('person', e.slug) }}/tree">{{ _("Family tree") }}</a></p>
+{% set shapes = {'person': 'circle', 'family': 'square', 'event': 'diamond', 'organization': 'hexagon', 'place': 'triangle', 'archive_item': 'doc'} %}
+{% macro shape(kind, x, y, r=16) %}
+  {% if kind == 'person' %}<circle cx="{{ x }}" cy="{{ y }}" r="{{ r }}"/>
+  {% elif kind == 'family' %}<rect x="{{ x - r }}" y="{{ y - r }}" width="{{ 2 * r }}" height="{{ 2 * r }}" rx="3"/>
+  {% elif kind == 'event' %}<path d="M{{ x }},{{ y - r - 3 }} L{{ x + r + 3 }},{{ y }} L{{ x }},{{ y + r + 3 }} L{{ x - r - 3 }},{{ y }} Z"/>
+  {% elif kind == 'organization' %}<path d="M{{ x - r }},{{ y }} L{{ x - r / 2 }},{{ y - r }} L{{ x + r / 2 }},{{ y - r }} L{{ x + r }},{{ y }} L{{ x + r / 2 }},{{ y + r }} L{{ x - r / 2 }},{{ y + r }} Z"/>
+  {% elif kind == 'place' %}<path d="M{{ x }},{{ y - r - 2 }} L{{ x + r + 2 }},{{ y + r }} L{{ x - r - 2 }},{{ y + r }} Z"/>
+  {% else %}<rect x="{{ x - r + 3 }}" y="{{ y - r - 2 }}" width="{{ 2 * r - 6 }}" height="{{ 2 * r + 4 }}"/>{% endif %}
+{% endmacro %}
+{% if net and net.rows %}
+<div class="graph" data-graph>
+  <div class="graph__tools" role="toolbar" aria-label="{{ _('Diagram controls') }}">
+    <button class="btn btn-small btn-secondary" type="button" data-zoom="in" aria-label="{{ _('Zoom in') }}">+</button>
+    <button class="btn btn-small btn-secondary" type="button" data-zoom="out" aria-label="{{ _('Zoom out') }}">−</button>
+    <button class="btn btn-small btn-secondary" type="button" data-zoom="fit">{{ _("Fit to screen") }}</button>
+  </div>
+  <div class="graph__viewport" tabindex="0">
+  <svg viewBox="0 0 {{ net.w }} {{ net.h }}" width="{{ net.w }}" height="{{ net.h }}" class="graph__svg network" role="img" aria-labelledby="net-desc" data-w="{{ net.w }}" data-h="{{ net.h }}">
+    <desc id="net-desc">{{ _("Diagram of documented connections. The same information is listed in the table below.") }}</desc>
+    <g class="graph__layer">
+      {% for l in net.lines %}<line class="net-edge net-edge--{{ l.cat }}" x1="{{ l.x1 }}" y1="{{ l.y1 }}" x2="{{ l.x2 }}" y2="{{ l.y2 }}"/>{% endfor %}
+      {% for n in net.nodes %}
+      <a href="{{ record_url(n.kind, n.item.slug) }}" class="net-node net-node--{{ n.kind }}">
+        <title>{{ kind_label(n.kind) }}: {{ n.item.name or n.item.title }}</title>
+        {{ shape(n.kind, n.x, n.y, 14 if n.ring == 2 else 17) }}
+        <text x="{{ n.x }}" y="{{ n.y + 34 }}">{{ n.label }}</text>
+      </a>
+      {% endfor %}
+      <g class="net-node net-node--center">{{ shape('person', net.center.x, net.center.y, 24) }}<text x="{{ net.center.x }}" y="{{ net.center.y + 44 }}">{{ net.center.label }}</text></g>
+    </g>
+  </svg>
+  </div>
+  <ul class="graph-legend small" aria-label="{{ _('Legend') }}">
+    {% for kind, label in (('person', _('Person')), ('family', _('Family record')), ('event', _('Event')), ('organization', _('Organization')), ('place', _('Place')), ('archive_item', _('Photograph'))) %}
+    <li><svg width="22" height="22" viewBox="0 0 44 44" class="net-node net-node--{{ kind }}" aria-hidden="true">{{ shape(kind, 22, 22, 14) }}</svg> {{ label }}</li>{% endfor %}
+    {% for cat, label in net.categories.items() %}<li><svg width="36" height="10" aria-hidden="true"><line class="net-edge net-edge--{{ cat }}" x1="0" y1="5" x2="36" y2="5"/></svg> {{ _(label) }}</li>{% endfor %}
+  </ul>
+</div>
+<section aria-labelledby="c-h">
+  <h2 id="c-h">{{ _("All connections") }}</h2>
+  <div class="table-wrap"><table><caption class="sr-only">{{ _("All connections") }}</caption>
+    <thead><tr><th scope="col">{{ _("Connected record") }}</th><th scope="col">{{ _("Kind of connection") }}</th><th scope="col">{{ _("Through") }}</th><th scope="col">{{ _("What is documented") }}</th></tr></thead>
+    <tbody>{% for r in net.rows %}<tr>
+      <td>{{ kind_label(r.kind) }}: <a href="{{ record_url(r.kind, r.record.slug) }}" dir="auto">{{ r.record.name or r.record.title }}</a></td>
+      <td>{{ _(net.categories[r.category]) }}</td>
+      <td>{% if r.via %}<a href="{{ record_url(r.via.kind, r.via.slug) }}" dir="auto">{{ r.via.title }}</a>{% else %}—{% endif %}</td>
+      <td dir="auto">{{ r.explanation }}</td></tr>{% endfor %}</tbody></table></div>
+</section>
+{% else %}
+  {{ empty(_("No documented connections have been published for this person yet."), record_url('person', e.slug), _("Back to the record")) }}
+{% endif %}
+{% endblock %}

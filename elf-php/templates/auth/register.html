@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import errors_summary, input %}
+{% block title %}{{ _("Create an account") }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>{{ _("Create an account") }}</h1>
+<p class="lede">{{ _("An account lets you propose records, photos and corrections. You do not need one to browse the archive.") }}</p>
+{{ errors_summary(errors) }}
+<form method="post" action="/auth/register" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {{ input('email', _('Email address'), values.email, type='email', errors=errors, required=true, autocomplete='email',
+           help=_('Used for verification and review updates. Never shown publicly.')) }}
+  {{ input('username', _('Username'), values.username, errors=errors, required=true, autocomplete='username',
+           help=_('3–30 letters, numbers or underscores.')) }}
+  {{ input('display_name', _('Display name'), values.display_name, errors=errors, required=true, autocomplete='nickname',
+           help=_('How your contributions are credited. It does not have to be your real name.')) }}
+  {{ input('password', _('Password'), type='password', errors=errors, required=true, autocomplete='new-password',
+           help=_('At least 10 characters. A short phrase of several words works well.')) }}
+  {{ input('password2', _('Repeat password'), type='password', errors=errors, required=true, autocomplete='new-password') }}
+  <div class="hp" aria-hidden="true"><label for="f-website">{{ _("Leave this empty") }}</label><input id="f-website" name="website" tabindex="-1" autocomplete="off"></div>
+  <p class="small">{{ _("By creating an account you agree to the terms of use and privacy policy.") }} <a href="/terms">{{ _("Terms of use") }}</a> · <a href="/privacy">{{ _("Privacy policy") }}</a></p>
+  <button class="btn" type="submit">{{ _("Create account") }}</button>
+</form>
+<p>{{ _("Already registered?") }} <a href="/auth/login">{{ _("Sign in") }}</a>.</p>
+{% endblock %}

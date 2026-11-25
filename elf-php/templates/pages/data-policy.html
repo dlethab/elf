@@ -1,0 +1,7 @@
+{% extends "pages/_info.html" %}
+{% block draft_notice %}{% include "pages/_policy_draft.html" %}{% endblock %}
+{% block body %}
+<p>Every record has a permanent identifier (for example <code>per-…</code>, <code>plc-…</code>) that never changes, even if the record is renamed or merged with a duplicate. Links of the form <code>/id/&lt;identifier&gt;</code> always lead to the current version.</p>
+<p>The archive's structured records can be exported in open formats (JSON and CSV) so that they can be backed up, transferred or migrated to other systems. The base map is drawn from Natural Earth data, which is in the public domain.</p>
+<p>The licence that will apply to the archive's descriptive data and to reuse of published records must be chosen by the archive's governing body.</p>
+{% endblock %}

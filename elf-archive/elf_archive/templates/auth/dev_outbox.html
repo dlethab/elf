@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}Development email outbox{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>Development email outbox</h1>
+<div class="notice notice--fictional"><p>Development only. This page does not exist in production. It shows queued email so verification and reset links can be tested without an email provider.</p></div>
+{% if rows %}
+  {% for r in rows %}<div class="card stack"><p><strong>{{ r.subject }}</strong> → {{ r.to_email }} <span class="small muted">{{ r.created_at }}{% if r.sent_at %} · sent{% endif %}</span></p><pre class="prose small">{{ r.body }}</pre></div>{% endfor %}
+{% else %}<p class="muted">No email has been queued.</p>{% endif %}
+{% endblock %}

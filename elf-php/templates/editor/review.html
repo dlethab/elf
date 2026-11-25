@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, status_badge, media_player %}
+{% block title %}Review: {{ title }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/editor', 'Editorial queue'], [request.path, title]]) }}
+<h1>{{ title }}</h1>
+<p>{{ kind_label(s.kind) }} · {{ status_badge(s.status) }} · from <strong>{{ submitter.display_name }}</strong> <span class="small muted">({{ submitter.username }}) · submitted {{ ((s.submitted_at ?: '—'))[:10] }}</span></p>
+{% if flags %}<p>{% for f in flags %}<span class="flag">{{ f }}</span>{% endfor %}</p>{% endif %}
+{% if is_own %}<div class="notice"><p>This is your own submission. Another editor must review it.</p></div>{% endif %}
+
+<div class="two-col">
+<div>
+  {% if target is defined and target %}<p>Correction to <a href="/editor/records/{{ target.public_id }}">{{ target_title }}</a> ({{ target.public_id }}). <a href="/id/{{ target.public_id }}">Public page</a></p>{% endif %}
+  {% if family %}<p>Proposed through family <a href="/editor/records/{{ family.public_id }}">{{ family.public_id }}</a>.</p>{% endif %}
+  <section aria-labelledby="p-h"><h2 id="p-h">{{ (s.kind == 'correction' ? 'Proposed changes' : 'Proposed record') }}</h2>{% include "dashboard/_proposal.html" %}</section>
+
+  {% if sources %}<section aria-labelledby="src-h"><h2 id="src-h">Sources declared by the contributor</h2>
+    <ul class="plain-list">{% for x in sources %}<li><strong>{{ x.title }}</strong>{% if x.locator %} — {{ x.locator }}{% endif %}{% if x.url %} · <a href="{{ x.url }}" rel="nofollow noopener noreferrer">{{ x.url }}</a>{% endif %}</li>{% endfor %}</ul>
+    <p class="small muted">On publication each becomes a source record (or reuses an existing one with the same title and URL) cited as “unverified” until assessed.</p></section>{% endif %}
+
+  {% if photos %}<section aria-labelledby="ph-h"><h2 id="ph-h">Photos ({{ photos|length }})</h2>
+    <p class="small muted">Decide on each photo before publishing. A photo becomes public only if you choose “Public”, its rights allow public display, and the record itself is public (a restricted living person's photos stay restricted). People and place identifications are the contributor's and have not been verified.</p>
+    {% for p in photos %}
+    <article class="card photo-review" id="photo-{{ p.id }}">
+      <div class="photo-review__img">{% if p.thumb_key %}<a href="{{ media_url(p.display_key) }}"><img src="{{ media_url(p.thumb_key) }}" alt="{{ p.caption }}"></a>
+        {% else %}{{ media_player(p.media_kind, (p.display_key ?: p.original_key), p.caption, p.size_bytes) }}{% endif %}
+        <p class="small"><a href="{{ media_url(p.original_key) }}">Download original</a> (staff only)</p>
+        {% if p.media_kind in ['audio', 'video'] and not p.display_key %}<p class="small flag">Embedded metadata could not be removed (ffmpeg is not installed on the server). If published, the file is served as uploaded. Check it before making it public.</p>{% endif %}</div>
+      <div>
+        <dl class="meta small">
+          <dt>Kind</dt><dd>{{ item_type_label(p.item_type) }} ({{ p.media_kind }})</dd>
+          <dt>Caption</dt><dd dir="auto">{{ p.caption }}</dd>
+          {% if p.transcript %}<dt>Transcript</dt><dd class="prose" dir="auto">{{ p.transcript|truncate(600) }}</dd>{% endif %}
+          <dt>Photographer</dt><dd dir="auto">{{ (p.creator_text ?: '—') }}</dd>
+          <dt>Date taken</dt><dd>{{ fdate(p.taken_start, p.taken_end, p.taken_precision) }}</dd>
+          <dt>Place (proposed)</dt><dd dir="auto">{{ (p.place_note ?: '—') }}</dd>
+          <dt>People (proposed)</dt><dd dir="auto">{{ (p.people_note ?: '—') }}</dd>
+          <dt>Rights holder</dt><dd dir="auto">{{ (p.rights_holder ?: '—') }}</dd>
+          <dt>Rights declared</dt><dd>{{ rights_label(p.rights_status) }}</dd>
+          <dt>File</dt><dd>{{ (p.original_filename ?: '—') }} · {{ p.mime_type }}{% if p.width %} · {{ p.width }}×{{ p.height }}{% endif %} · {{ (p.size_bytes / 1024)|round|int }} KB · SHA-256 {{ p.sha256[:12] }}…</dd>
+          <dt>Decision</dt><dd><strong>{{ {'pending': 'Not decided yet', 'accept': 'Include', 'decline': 'Leave out'}[p.editor_decision] }}</strong>{% if p.editor_decision == 'accept' %} · {{ p.editor_access|capitalize }}{% endif %}
+            {% if p.item_public_id %} · <a href="/editor/records/{{ p.item_public_id }}">archive item {{ p.item_public_id }}</a>{% endif %}</dd>
+        </dl>
+        {% if photo_decidable %}
+        <form method="post" action="/editor/submissions/{{ s.id }}/photos/{{ p.id }}" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <fieldset><legend>Decision</legend>
+            <div class="check"><input type="radio" id="d-a-{{ p.id }}" name="decision" value="accept" {% if p.editor_decision != 'decline' %}checked{% endif %}><label for="d-a-{{ p.id }}">Include in the archive</label></div>
+            <div class="check"><input type="radio" id="d-d-{{ p.id }}" name="decision" value="decline" {% if p.editor_decision == 'decline' %}checked{% endif %}><label for="d-d-{{ p.id }}">Leave out</label></div>
+          </fieldset>
+          <div class="field"><label for="acc-{{ p.id }}">Who can see it</label><select id="acc-{{ p.id }}" name="access">
+            <option value="restricted" {% if p.editor_access == 'restricted' %}selected{% endif %}>Restricted (staff only)</option>
+            <option value="public" {% if p.editor_access == 'public' %}selected{% endif %}>Public</option></select></div>
+          <div class="field"><label for="rs-{{ p.id }}">Rights status you have established</label><select id="rs-{{ p.id }}" name="rights_status">
+            {% for r in rights_statuses %}<option value="{{ r }}" {% if ((p.editor_rights_status ?: p.rights_status)) == r %}selected{% endif %}>{{ rights_label(r) }}{% if r in public_rights %} — may be public{% endif %}</option>{% endfor %}</select></div>
+          <div class="field"><label for="pc-{{ p.id }}">Published caption</label><textarea id="pc-{{ p.id }}" name="published_caption" rows="2" dir="auto">{{ (p.published_caption ?: p.caption) }}</textarea>
+            <div class="help">Remove names or details that should not be public.</div></div>
+          <div class="field"><label for="en-{{ p.id }}">Internal note (editors only)</label><textarea id="en-{{ p.id }}" name="editor_note" rows="2">{{ (p.editor_note ?: '') }}</textarea></div>
+          <button class="btn btn-small btn-secondary" type="submit">Save photo decision</button>
+        </form>
+        {% endif %}
+      </div>
+    </article>
+    {% endfor %}
+  </section>{% endif %}
+
+  {% if candidates is defined %}<section aria-labelledby="dup-h"><h2 id="dup-h">Possible duplicates</h2>
+    {% if candidates %}<p class="small muted">Similarity is a review aid, not evidence of identity. Nothing is merged automatically.</p>
+    <div class="table-wrap"><table><thead><tr><th scope="col">Existing record</th><th scope="col">Matched name</th><th scope="col">Why</th><th scope="col">Score</th><th scope="col">Access</th></tr></thead>
+      <tbody>{% for c in candidates %}<tr><td><a href="/editor/records/{{ c.public_id }}">{{ c.name }}</a></td><td>{{ c.matched }}</td><td>{{ c.why }}</td><td>{{ c.score }}</td><td>{{ c.visibility }}</td></tr>{% endfor %}</tbody></table></div>
+    {% else %}<p class="muted">No similar names found.</p>{% endif %}</section>{% endif %}
+
+  <section aria-labelledby="h-h"><h2 id="h-h">History</h2>
+    <ol class="plain-list">{% for ev in events %}<li><span class="small muted">{{ ev.created_at[:16]|replace({'T': ' '}) }} · {{ (ev.actor_name ?: 'system') }}</span> — {{ status_label(ev.to_status)[0] }}{% if not ev.visible_to_submitter %} <span class="badge">internal</span>{% endif %}{% if ev.message and ev.message != 'Draft created' %}: <span class="prose">{{ ev.message }}</span>{% endif %}</li>{% endfor %}</ol>
+    {% if s.editor_notes %}<h3>Internal notes</h3><p class="prose small">{{ s.editor_notes }}</p>{% endif %}
+  </section>
+</div>
+
+<aside>
+  {% if not is_own %}
+  <section class="aside-box" aria-labelledby="act-h"><h2 id="act-h">Decision</h2>
+    {% if s.status == 'submitted' %}
+      <form method="post" action="/editor/submissions/{{ s.id }}/transition"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="to" value="under_review"><button class="btn" type="submit">Start review</button></form>
+    {% endif %}
+    {% if s.status == 'under_review' %}
+      <form method="post" action="/editor/submissions/{{ s.id }}/transition" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="to" value="approved">
+        <div class="field"><label for="m-ap">Note to contributor (optional)</label><textarea id="m-ap" name="message" rows="2"></textarea></div>
+        <button class="btn" type="submit">Approve</button></form>
+    {% endif %}
+    {% if s.status == 'approved' %}
+      <form method="post" action="/editor/submissions/{{ s.id }}/transition" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="to" value="published">
+        {% if needs_consent %}<div class="check"><input type="checkbox" id="cc" name="consent_confirmed" value="1"><label for="cc">I have confirmed this living person consents to a public profile. Leave unticked to publish as restricted (not public).</label></div>{% endif %}
+        {% if oral_consent %}<div class="check"><input type="checkbox" id="cc" name="consent_confirmed" value="1"><label for="cc">I have seen evidence of the consents the contributor declared (listed above). Leave unticked to publish with no consent on record: then nothing about the interview is public until consent is recorded on the record page.</label></div>{% endif %}
+        <button class="btn" type="submit" data-confirm="Publish this to the archive?">Publish</button></form>
+      <form method="post" action="/editor/submissions/{{ s.id }}/transition"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="to" value="under_review"><button class="linkish" type="submit">Reopen review</button></form>
+    {% endif %}
+    {% if s.status in ['submitted', 'under_review'] %}
+      <form method="post" action="/editor/submissions/{{ s.id }}/transition" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="to" value="needs_revision">
+        <div class="field"><label for="m-nr">Ask the contributor for changes (they will see this)</label><textarea id="m-nr" name="message" rows="3" required></textarea></div>
+        <button class="btn btn-secondary" type="submit">Return for revision</button></form>
+    {% endif %}
+    {% if s.status in ['submitted', 'under_review', 'approved'] %}
+      <form method="post" action="/editor/submissions/{{ s.id }}/transition" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="to" value="rejected">
+        <div class="field"><label for="m-rj">Reason for rejection (the contributor will see this)</label><textarea id="m-rj" name="message" rows="3" required></textarea></div>
+        <button class="btn btn-danger" type="submit" data-confirm="Reject this submission? This is final.">Reject</button></form>
+    {% endif %}
+    {% if s.status in ['published', 'rejected', 'withdrawn', 'needs_revision', 'draft'] %}<p class="small muted">No editorial action is available in this state.</p>{% endif %}
+  </section>
+  {% endif %}
+  <section class="aside-box" aria-labelledby="n-h"><h2 id="n-h">Internal note</h2>
+    <form method="post" action="/editor/submissions/{{ s.id }}/note" class="stack"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="field"><label for="in">Visible to editors only</label><textarea id="in" name="internal_note" rows="3" required></textarea></div>
+      <button class="btn btn-small btn-secondary" type="submit">Add note</button></form>
+  </section>
+</aside>
+</div>
+{% endblock %}

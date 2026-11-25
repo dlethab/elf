@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, empty %}
+{% block title %}{{ _("Curated explorations") }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/explore', _('Historical atlas')), (request.path, _('Curated explorations'))]) }}
+<h1>{{ _("Curated explorations") }}</h1>
+<p class="lede">{{ _("Selections of reviewed records about a period, a region or a theme, chosen and described by the archive's editors. Each one names its editor and its sources, and links to every record it draws on.") }}</p>
+{% if rows %}
+<ul class="card-list">
+  {% for r in rows %}
+  <li class="card"><h2><a href="/explore/curated/{{ r.x.slug }}" dir="auto">{{ r.x.title }}</a></h2>
+    <p class="small muted">{% if r.x.period_from or r.x.period_to %}<span dir="ltr">{{ r.x.period_from or '…' }} – {{ r.x.period_to or '…' }}</span> · {% endif %}{% if r.x.region %}<span dir="auto">{{ r.x.region }}</span> · {% endif %}{{ _("1 record") if r['items']|length == 1 else _("{n} records", n=r['items']|length) }}</p>
+    <p dir="auto">{{ r.x.description[:280] }}{% if r.x.description|length > 280 %}…{% endif %}</p></li>
+  {% endfor %}
+</ul>
+{% else %}{{ empty(_("No curated explorations have been published yet."), "/explore", _("Open the historical atlas")) }}{% endif %}
+{% endblock %}

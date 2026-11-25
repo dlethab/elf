@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% from "_macros.html" import errors_summary, input %}
+{% block title %}{{ _("Sign in") }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>{{ _("Sign in") }}</h1>
+{{ errors_summary(errors) }}
+<form method="post" action="/auth/login" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="next" value="{{ next }}">
+  {{ input('identifier', _('Email or username'), identifier, errors=errors, required=true, autocomplete='username') }}
+  {{ input('password', _('Password'), type='password', errors=errors, required=true, autocomplete='current-password') }}
+  <button class="btn" type="submit">{{ _("Sign in") }}</button>
+</form>
+<p><a href="/auth/forgot">{{ _("Forgot your password?") }}</a> · <a href="/auth/register">{{ _("Create an account") }}</a></p>
+{% endblock %}

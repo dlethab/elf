@@ -1,0 +1,295 @@
+<?php
+declare(strict_types=1);
+
+/*
+ * Operator commands:  php bin/elf <command>
+ *
+ *   migrate                      apply pending database migrations
+ *   create-admin --email E --username U [--display-name N]
+ *                                create the first administrator (asks for the password; never pass it as an argument)
+ *   send-email                   deliver queued email through SMTP (requires the ELF_SMTP_* settings)
+ *   reindex                      rebuild the public search index from the database
+ *   backup DEST [--media DIR]    consistent copy of the database (+ incremental copy of the media files)
+ *   export-public DEST.zip [--include-fictional]
+ *                                public data export (JSON + CSV, public fields only)
+ *   legacy-password-resets [--send]
+ *                                accounts whose password was set by the Python edition with scrypt (which PHP cannot
+ *                                check): lists them, and with --send queues a password-reset email to each
+ *   sample-db [--path P] [--media M]
+ *                                build a SEPARATE, fully fictional sample archive (never the real database)
+ *   seed-test-data               DEVELOPMENT ONLY: add clearly labelled fictional records for trying the interface
+ *
+ * Settings come from the environment or the .env file in the project folder, as for the website.
+ */
+
+use Elf\App;
+use Elf\Config;
+use Elf\Db;
+use Elf\Services\Accounts;
+use Elf\Services\Audit;
+use Elf\Services\Export;
+use Elf\Services\Passwords;
+use Elf\Services\Search;
+use Elf\Services\Util;
+use Elf\Tools\DevSeed;
+use Elf\Tools\SampleData;
+
+require dirname(__DIR__) . '/vendor/autoload.php';
+
+function fail(string $msg): never
+{
+    fwrite(STDERR, "Error: {$msg}\n");
+    exit(1);
+}
+
+/** --name value / --flag options and positional arguments. */
+function args(array $argv): array
+{
+    $pos = [];
+    $opt = [];
+    for ($i = 0; $i < count($argv); $i++) {
+        $a = $argv[$i];
+        if (str_starts_with($a, '--')) {
+            $k = substr($a, 2);
+            if (str_contains($k, '=')) {
+                [$k, $v] = explode('=', $k, 2);
+                $opt[$k] = $v;
+            } elseif (isset($argv[$i + 1]) && !str_starts_with($argv[$i + 1], '--') && !in_array($k, ['include-fictional', 'send'], true)) {
+                $opt[$k] = $argv[++$i];
+            } else {
+                $opt[$k] = true;
+            }
+        } else {
+            $pos[] = $a;
+        }
+    }
+    return [$pos, $opt];
+}
+
+/** A password typed without showing it (Windows: through PowerShell; elsewhere: stty). */
+function secret(string $prompt): string
+{
+    fwrite(STDOUT, $prompt);
+    if (PHP_OS_FAMILY === 'Windows') {
+        $cmd = 'powershell -NoProfile -Command "$p = Read-Host -AsSecureString; '
+            . '[Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($p))"';
+        $v = rtrim((string) shell_exec($cmd), "\r\n");
+    } else {
+        $tty = @shell_exec('stty -g 2>/dev/null');
+        if ($tty) {
+            shell_exec('stty -echo');
+        }
+        $v = rtrim((string) fgets(STDIN), "\r\n");
+        if ($tty) {
+            shell_exec('stty ' . escapeshellarg(trim($tty)));
+        }
+        fwrite(STDOUT, "\n");
+    }
+    return $v;
+}
+
+[$pos, $opt] = args(array_slice($argv, 1));
+$cmd = array_shift($pos) ?? 'help';
+$config = Config::load();
+$dbPath = Config::path((string) $config['DATABASE_PATH']);
+$db = fn () => new Db($dbPath);
+
+switch ($cmd) {
+    case 'migrate':
+        if (!is_dir(dirname($dbPath))) {
+            mkdir(dirname($dbPath), 0770, true);
+        }
+        $applied = $db()->migrate();
+        echo 'Applied: ' . ($applied ? implode(', ', $applied) : 'nothing (already up to date)') . "\n";
+        break;
+
+    case 'create-admin':
+        $email = $opt['email'] ?? null;
+        $username = $opt['username'] ?? null;
+        if (!is_string($email) || !is_string($username)) {
+            fail('Use: php bin/elf create-admin --email you@example.org --username yourname [--display-name "Your Name"]');
+        }
+        $pw = secret('Password (min 10 characters): ');
+        if ($pw !== secret('Repeat password: ')) {
+            fail('Passwords do not match.');
+        }
+        $err = Accounts::validatePassword($pw, $email, $username);
+        if ($err) {
+            fail($err);
+        }
+        $conn = $db();
+        $conn->tx(function () use ($conn, $email, $username, $opt, $pw) {
+            if ($conn->one('SELECT 1 FROM users WHERE email=? OR username=?', [$email, $username])) {
+                fail('A user with that email or username already exists.');
+            }
+            $uid = $conn->insert('INSERT INTO users(email, username, display_name, password_hash, email_verified_at) VALUES (?,?,?,?,?)',
+                [$email, $username, is_string($opt['display-name'] ?? null) ? $opt['display-name'] : $username, Passwords::hash($pw), Util::nowIso()]);
+            foreach (['administrator', 'editor'] as $role) {
+                $conn->exec('INSERT INTO user_roles(user_id, role) VALUES (?,?)', [$uid, $role]);
+            }
+            Audit::log($conn, null, 'account.admin_created_cli', 'user', $uid);
+        });
+        echo "Administrator '{$username}' created.\n";
+        break;
+
+    case 'send-email':
+        if (!$config['SMTP_HOST'] || !$config['SMTP_FROM']) {
+            fail('Set ELF_SMTP_HOST and ELF_SMTP_FROM first. Queued mail stays in the outbox table.');
+        }
+        $mailer = new PHPMailer\PHPMailer\PHPMailer(true);
+        $mailer->isSMTP();
+        $mailer->Host = (string) $config['SMTP_HOST'];
+        $mailer->Port = (int) $config['SMTP_PORT'];
+        $mailer->SMTPSecure = (int) $config['SMTP_PORT'] === 465 ? PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS : PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+        $mailer->SMTPAutoTLS = true;
+        $mailer->Timeout = 20;
+        $mailer->CharSet = 'UTF-8';
+        if ($config['SMTP_USER']) {
+            $mailer->SMTPAuth = true;
+            $mailer->Username = (string) $config['SMTP_USER'];
+            $mailer->Password = (string) $config['SMTP_PASSWORD'];
+        }
+        $mailer->SMTPKeepAlive = true;
+        $send = function (string $to, string $subject, string $body) use ($mailer, $config) {
+            $mailer->clearAllRecipients();
+            $mailer->setFrom((string) $config['SMTP_FROM']);
+            $mailer->addAddress($to);
+            $mailer->Subject = $subject;
+            $mailer->Body = $body;
+            $mailer->isHTML(false);
+            $mailer->send();
+        };
+        $n = Accounts::deliverOutbox($db(), $send);
+        $mailer->smtpClose();
+        echo "Sent {$n} message(s).\n";
+        break;
+
+    case 'reindex':
+        $conn = $db();
+        $conn->tx(fn () => Search::rebuildAll($conn));
+        echo "Search index rebuilt.\n";
+        break;
+
+    case 'backup':
+        $dest = $pos[0] ?? fail('Use: php bin/elf backup DESTINATION.db [--media FOLDER]');
+        if (file_exists($dest)) {
+            fail('Destination exists; choose a new file name (e.g. include the date).');
+        }
+        $src = $db();
+        // VACUUM INTO writes a consistent copy while the site keeps running
+        $src->exec('VACUUM INTO ?', [$dest]);
+        $copy = new PDO('sqlite:' . $dest);
+        $result = $copy->query('PRAGMA integrity_check')->fetchColumn();
+        $counts = [];
+        foreach (['entities' => 'entities', 'revisions' => 'revisions', 'users' => 'users', 'audit' => 'audit_logs'] as $k => $t) {
+            $counts[$k] = (int) $copy->query("SELECT COUNT(*) FROM {$t}")->fetchColumn();
+        }
+        $copy = null;
+        if ($result !== 'ok') {
+            fail("Backup written but integrity check failed: {$result}");
+        }
+        $copied = 0;
+        $mediaDest = is_string($opt['media'] ?? null) ? $opt['media'] : null;
+        if ($mediaDest) {
+            // stored files are never modified after upload (new versions get new keys), so name + size identifies a copy
+            $root = Config::path((string) $config['MEDIA_ROOT']);
+            if (is_dir($root)) {
+                $it = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($root, FilesystemIterator::SKIP_DOTS));
+                foreach ($it as $f) {
+                    if (!$f->isFile()) {
+                        continue;
+                    }
+                    $rel = substr($f->getPathname(), strlen($root) + 1);
+                    $d = rtrim($mediaDest, '/\\') . DIRECTORY_SEPARATOR . $rel;
+                    if (!(is_file($d) && filesize($d) === $f->getSize())) {
+                        if (!is_dir(dirname($d))) {
+                            mkdir(dirname($d), 0770, true);
+                        }
+                        copy($f->getPathname(), $d);
+                        touch($d, $f->getMTime());
+                        $copied++;
+                    }
+                }
+            }
+        }
+        $src->tx(fn () => Audit::log($src, null, 'system.backup', 'system', null,
+            ['destination' => basename($dest), 'media_copied' => $mediaDest ? $copied : null] + $counts));
+        echo "Backup written to {$dest} (integrity ok; " . json_encode($counts) . ')'
+            . ($mediaDest ? "; {$copied} new media file(s) copied to {$mediaDest}" : '') . "\n";
+        break;
+
+    case 'export-public':
+        $dest = $pos[0] ?? fail('Use: php bin/elf export-public DESTINATION.zip [--include-fictional]');
+        if (file_exists($dest)) {
+            fail('Destination exists; choose a new file name.');
+        }
+        $fictional = isset($opt['include-fictional']);
+        if ($fictional && $config['ENV'] === 'production') {
+            fail('Fictional test records cannot be exported from production.');
+        }
+        $conn = $db();
+        [$data, $manifest] = $conn->tx(fn () => Export::exportZip($conn, null, (string) $config['BASE_URL'], $fictional, 'cli'));
+        file_put_contents($dest, $data);
+        echo "Public export written to {$dest}: " . json_encode($manifest['counts']) . "\n";
+        break;
+
+    case 'legacy-password-resets':
+        $conn = $db();
+        $rows = array_values(array_filter($conn->all('SELECT id, email, username, password_hash FROM users WHERE is_active=1 AND anonymized_at IS NULL'),
+            fn ($u) => !Passwords::supported($u['password_hash'])));
+        if (!$rows) {
+            echo "Every active account can sign in with this edition. Nothing to do.\n";
+            break;
+        }
+        echo count($rows) . " account(s) have a password this edition cannot check (set by the Python edition with scrypt):\n";
+        foreach ($rows as $u) {
+            echo "  {$u['username']} <{$u['email']}>\n";
+        }
+        if (!isset($opt['send'])) {
+            echo "Run again with --send to queue a password-reset email to each (then: php bin/elf send-email).\n";
+            break;
+        }
+        foreach ($rows as $u) {
+            $conn->tx(fn () => Accounts::requestReset($conn, $u['email'], 'cli-' . $u['id'], (string) $config['BASE_URL']));
+        }
+        echo 'Queued ' . count($rows) . " password-reset email(s). Send them now with: php bin/elf send-email\n"
+            . "(Each link works for one hour; anyone who misses it can use \"Forgot your password?\" on the sign-in page.)\n";
+        break;
+
+    case 'sample-db':
+        if ($config['ENV'] === 'production') {
+            fail('Refusing to build sample data on a production server.');
+        }
+        $path = is_string($opt['path'] ?? null) ? $opt['path'] : 'instance/sample.db';
+        $media = is_string($opt['media'] ?? null) ? $opt['media'] : 'instance/sample-media';
+        echo "Building the sample archive (about a minute)...\n";
+        [$password, $report] = SampleData::build($path, $media, (string) $config['DATABASE_PATH']);
+        $lines = array_merge(["Sample archive created: {$path}"], $report, ['', "Every account uses the password: {$password}"]);
+        foreach (SampleData::USERS as [$name, , , $why]) {
+            $lines[] = '  ' . str_pad($name, 18) . " {$why}";
+        }
+        $lines = array_merge($lines, ['', 'To open it:  .\\run-sample.ps1  (or ./run-sample.sh)  then visit http://127.0.0.1:8001',
+            'Everything in it is fictional. Run this command again to start over.']);
+        $dir = dirname(Config::path($path));
+        if (!is_dir($dir)) {
+            mkdir($dir, 0770, true);
+        }
+        file_put_contents($dir . '/sample-accounts.txt', implode("\n", $lines) . "\n");
+        echo implode("\n", $lines) . "\n";
+        break;
+
+    case 'seed-test-data':
+        if ($config['ENV'] === 'production') {
+            fail('Refusing to add fictional data to a production database.');
+        }
+        $conn = $db();
+        $conn->migrate();
+        echo DevSeed::seed($conn) . "\n";
+        break;
+
+    default:
+        $doc = (string) file_get_contents(__FILE__);
+        preg_match('~/\*(.*?)\*/~s', $doc, $m);
+        echo preg_replace('/^\s*\* ?/m', '', trim($m[1])) . "\n";
+        exit($cmd === 'help' ? 0 : 1);
+}

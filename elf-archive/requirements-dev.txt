@@ -1,0 +1,5 @@
+-r requirements.txt
+# Lets `flask` commands read .env automatically
+python-dotenv>=1.0
+# Browser end-to-end tests (then run: python3 -m playwright install chromium)
+playwright>=1.56

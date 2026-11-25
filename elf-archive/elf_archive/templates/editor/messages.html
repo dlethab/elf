@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}Messages{% endblock %}
+{% block content %}
+<h1>Contact messages</h1>
+{% include "editor/_nav.html" %}
+<ul class="tabs"><li><a href="/editor/messages" {% if status == 'new' %}aria-current="page"{% endif %}>New</a></li><li><a href="/editor/messages?status=handled" {% if status == 'handled' %}aria-current="page"{% endif %}>Handled</a></li></ul>
+{% for m in rows %}
+<div class="card stack">
+  <p class="small muted">{{ m.created_at[:16].replace('T', ' ') }} · {{ m.name or 'No name given' }}{% if m.email %} · <a href="mailto:{{ m.email }}">{{ m.email }}</a>{% endif %}{% if m.related_public_id %} · about <a href="/editor/records/{{ m.related_public_id }}">{{ m.related_public_id }}</a>{% endif %}</p>
+  <p class="prose">{{ m.message }}</p>
+  {% if status == 'new' %}<form method="post" action="/editor/messages/{{ m.id }}/handled"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-small btn-secondary" type="submit">Mark as handled</button></form>{% endif %}
+</div>
+{% else %}{{ empty("No messages.") }}{% endfor %}
+{% endblock %}

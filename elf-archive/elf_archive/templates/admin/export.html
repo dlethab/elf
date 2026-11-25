@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Data export{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+<h1>Data export</h1>
+{% include "admin/_nav.html" %}
+<p class="lede">A ZIP of the archive's <strong>public</strong> data, as JSON and as CSV files that open in a spreadsheet. Use it for preservation copies, for researchers, or to move the archive to new software.</p>
+<ul>
+  <li>It contains only published, public records, and only the fields their public pages show.</li>
+  <li>Confidential fields are never included: research and editor notes, donor and custodian details, interview codes, redaction notes, accounts, submissions, contact messages and logs.</li>
+  <li>Oral-history transcripts and translations are included only where the interviewee's consent allows publication and no embargo is in force.</li>
+  <li>Media files are not included. Every record carries the address of its page.</li>
+  <li>Each download is recorded in the audit log.</li>
+</ul>
+<p class="small muted">This is not a backup. For a complete copy of everything, including confidential data and media files, follow the backup procedure in <code>docs/OPERATIONS.md</code>.</p>
+<h2>What the export contains now</h2>
+<div class="table-wrap"><table><thead><tr><th scope="col">File</th><th scope="col">Rows</th></tr></thead>
+<tbody>{% for k, n in counts.items() %}<tr><td><code>{{ k }}</code></td><td>{{ n }}</td></tr>{% endfor %}</tbody></table></div>
+<form method="post" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  {% if not is_production %}<div class="check"><input type="checkbox" id="fict" name="include_fictional" value="1"><label for="fict">Include fictional test records (development only)</label></div>{% endif %}
+  <button class="btn" type="submit">Download the public export</button>
+</form>
+<p class="small">From the server: <code>flask --app elf_archive export-public /path/to/export.zip</code></p>
+{% endblock %}

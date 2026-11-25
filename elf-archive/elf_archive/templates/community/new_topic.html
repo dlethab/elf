@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs %}
+{% block title %}{{ _("Start a topic") }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/community', _('Community')), ('/community/c/' ~ cat.slug, _(cat.title)), (request.path, _('Start a topic'))]) }}
+<h1>{{ _("Start a topic") }}</h1>
+{% if not ok %}<div class="notice notice--error"><p>{{ _(why) }}</p></div>
+{% else %}
+<p class="small">{{ _("Please read the community rules first. Do not post anyone's private information.") }} <a href="/community/rules">{{ _("Community rules") }}</a></p>
+{% if error %}<div class="notice notice--error" role="alert"><p>{{ _(error) }}</p></div>{% endif %}
+<form method="post" class="stack" data-warn-unsaved>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">{% if link %}<input type="hidden" name="about" value="{{ link }}">{% endif %}
+  <div class="field"><label for="tt">{{ _("Title") }}</label><input id="tt" name="title" type="text" value="{{ values.title }}" dir="auto" required maxlength="200"></div>
+  <div class="field"><label for="tb">{{ _("Message") }}</label><textarea id="tb" name="body" rows="8" dir="auto" required>{{ values.body }}</textarea>
+    <div class="help">{{ _("Plain text. Links are allowed (at most 3). Leave a blank line between paragraphs.") }}</div></div>
+  <div class="hp" aria-hidden="true"><label for="f-website">{{ _("Leave this empty") }}</label><input id="f-website" name="website" tabindex="-1" autocomplete="off"></div>
+  <button class="btn" type="submit">{{ _("Post topic") }}</button>
+</form>
+{% endif %}
+{% endblock %}

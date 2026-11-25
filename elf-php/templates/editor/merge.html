@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, status_badge %}
+{% block title %}Merge records{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/editor', 'Editorial'], ['/editor/duplicates', 'Duplicates'], [request.path, 'Merge']]) }}
+<h1>Merge two records</h1>
+<p class="lede">Only merge when the evidence shows these are the same {{ kind_label(keep.e.kind)|lower }}. Similar names are not proof.</p>
+<div class="merge-cols">
+  {% for _t18 in [['Keep', keep], ['Retire', retire]] %}{% set label = _t18[0] %}{% set side = _t18[1] %}
+  <section class="card" aria-labelledby="mh-{{ loop.index }}">
+    <h2 id="mh-{{ loop.index }}">{{ label }}: <a href="/editor/records/{{ side.e.public_id }}">{{ side.title }}</a></h2>
+    <p class="small">{{ side.e.public_id }} · {{ status_badge(side.e.publication_status) }} · {{ side.e.visibility }}</p>
+    <dl class="meta small">{% for k, v in side.fields %}<dt>{{ k|replace({'_': ' '}) }}</dt><dd dir="auto">{{ v|string|truncate(300) }}</dd>{% endfor %}</dl>
+    <p class="small"><strong>Names:</strong> {% for n in side.names %}<span dir="auto">{{ n.name }}</span> <span class="muted">({{ n.name_type|replace({'_': ' '}) }})</span>{% if not loop.last %}; {% endif %}{% endfor %}</p>
+  </section>
+  {% endfor %}
+</div>
+<p class="row"><a class="btn btn-small btn-secondary" href="/editor/merge?keep={{ retire.e.public_id }}&retire={{ keep.e.public_id }}">Swap: keep the other one instead</a></p>
+<section class="aside-box"><h2>What will happen</h2>
+  <ul class="small">
+    <li><strong>{{ keep.e.public_id }}</strong> stays: its permanent ID, address and data.</li>
+    <li><strong>{{ retire.e.public_id }}</strong> is not deleted. It becomes a redirect to the kept record, and its full history is preserved.</li>
+    <li>All names of the retired record become alternate names of the kept one.</li>
+    <li>These links move to the kept record: {% for k, n in counts %}{{ k|replace({'_': ' '})|replace({'.': ' → '}) }} ({{ n }}){% if not loop.last %}, {% endif %}{% else %}none{% endfor %}.</li>
+    <li>Links that would be duplicated, or would link the record to itself, are dropped and listed in the audit log.</li>
+  </ul>
+</section>
+<form method="post" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="keep" value="{{ keep.e.public_id }}"><input type="hidden" name="retire" value="{{ retire.e.public_id }}">
+  <div class="check"><input type="checkbox" id="fg" name="fill_gaps" value="1" checked><label for="fg">Fill empty fields of the kept record with values from the retired one (nothing that is already filled is overwritten)</label></div>
+  <div class="field"><label for="mr">Why are these the same? (required, kept with the merge)</label><textarea id="mr" name="reason" rows="3" required></textarea></div>
+  <button class="btn btn-danger" type="submit" data-confirm="Merge these two records?">Merge</button> <a href="/editor/duplicates">Cancel</a>
+</form>
+{% endblock %}

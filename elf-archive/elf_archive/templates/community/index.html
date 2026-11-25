@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, empty %}
+{% block title %}{{ _("Community") }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/community', _('Community'))]) }}
+<h1>{{ _("Community") }}</h1>
+<p class="lede">{{ _("A moderated place to discuss family histories, places and events, ask research questions and help identify photographs. Posts here are community conversation, not verified records: information becomes part of the archive only through editorial review.") }}</p>
+<p class="row"><a href="/community/rules">{{ _("Community rules") }}</a> ·
+  {% if not current_user %}<a href="/auth/login?next=/community">{{ _("Sign in to take part") }}</a>{% elif not can_post[0] %}<span class="muted">{{ _(can_post[1]) }}</span>{% else %}<span class="muted">{{ _("Choose a category to start a topic.") }}</span>{% endif %}</p>
+<form method="get" action="/community/search" class="row" role="search"><label for="cq" class="sr-only">{{ _("Search the forum") }}</label>
+  <input id="cq" type="search" name="q" dir="auto" placeholder="{{ _('Search the forum') }}"><button class="btn btn-small btn-secondary" type="submit">{{ _("Search") }}</button></form>
+<h2>{{ _("Categories") }}</h2>
+<ul class="grid">{% for c in cats %}<li class="card"><a class="card-link" href="/community/c/{{ c.slug }}"><h3>{{ _(c.title) }}</h3>
+  <p class="small">{{ _(c.description) }}</p><p class="small muted">{{ _("1 topic") if c.topics == 1 else _("{n} topics", n=c.topics) }}{% if c.last %} · {{ _("last post {date}", date=c.last[:10]) }}{% endif %}</p></a></li>{% endfor %}</ul>
+<h2>{{ _("Recent topics") }}</h2>
+{% if recent %}<ul class="plain-list">{% for t in recent %}<li><a href="/community/topics/{{ t.slug }}" dir="auto">{{ t.title }}</a> <span class="small muted">· {{ _(t.category_title) }} · {{ t.at[:10] }}</span></li>{% endfor %}</ul>
+{% else %}{{ empty(_("No topics yet. Start the first one in a category above.")) }}{% endif %}
+{% endblock %}

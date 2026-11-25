@@ -1,0 +1,28 @@
+﻿{# Shared symbols for the historical atlas (map and timeline). map.js and timeline.js draw the same shapes. #}
+
+{# Place marker: SHAPE = kind of place, OUTLINE = how precisely the location is known. #}
+{% macro mark(cat, prec, size=22) -%}
+<svg class="atlas-mark atlas-mark--{{ cat }} atlas-mark--{{ prec }}" viewBox="0 0 24 24" width="{{ size }}" height="{{ size }}" aria-hidden="true" focusable="false">
+  {%- if prec == 'approximate' %}<circle class="m-halo" cx="12" cy="12" r="10.5"/>{% elif prec == 'region_centroid' %}<circle class="m-zone" cx="12" cy="12" r="11"/>{% endif -%}
+  {%- if cat == 'settlement' %}<circle class="m-shape" cx="12" cy="12" r="5.5"/>
+  {%- elif cat == 'area' %}<path class="m-shape" d="M12 5.5 18.5 12 12 18.5 5.5 12Z"/>
+  {%- elif cat == 'conflict' %}<rect class="m-shape" x="6.8" y="6.8" width="10.4" height="10.4"/>
+  {%- else %}<path class="m-shape" d="M12 5.5 18.5 17.5H5.5Z"/>{% endif -%}
+</svg>
+{%- endmacro %}
+
+{# Event marker: SHAPE = kind of event (colour only repeats it). #}
+{% macro emark(cat, size=16) -%}
+<svg class="tl-shape tl-shape--{{ cat }}" viewBox="0 0 16 16" width="{{ size }}" height="{{ size }}" aria-hidden="true" focusable="false">
+  {%- if cat == 'conflict' %}<rect x="3" y="3" width="10" height="10"/>{% elif cat == 'political' %}<path d="M8 2 14 8 8 14 2 8Z"/>
+  {%- elif cat == 'people' %}<circle cx="8" cy="8" r="5.2"/>{% else %}<path d="M8 2.5 14 13.5H2Z"/>{% endif -%}
+</svg>
+{%- endmacro %}
+
+{% macro certainty(ev) -%}
+  {%- set kind = {'exact': 'precise', 'month': 'precise', 'year': 'precise', 'range': 'range'}.get(ev.date_precision, 'uncertain') -%}
+  <span class="chrono-mark chrono-mark--{{ kind }}" aria-hidden="true"></span>
+  <span><span class="chrono-when__date">{{ fdate(ev.date_start, ev.date_end, ev.date_precision) }}</span>
+  {%- if kind == 'uncertain' %}<span class="chrono-when__note">{{ precision_note(ev.date_precision) }}</span>
+  {%- elif kind == 'range' %}<span class="chrono-when__note">{{ _("Documented date range") }}</span>{% endif %}</span>
+{%- endmacro %}

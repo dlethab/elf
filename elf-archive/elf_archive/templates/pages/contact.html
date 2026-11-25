@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, errors_summary, input %}
+{% block title %}{{ _("Contact") }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/contact', _('Contact'))]) }}
+<h1>{{ _("Contact the archive") }}</h1>
+<p class="lede">{{ _("Questions, corrections, rights or removal requests. Messages are read by the editorial team.") }}</p>
+{% if values.about %}<p class="notice notice--info">{{ _("About record") }} <strong dir="ltr">{{ values.about }}</strong>.</p>{% endif %}
+{{ errors_summary(errors) }}
+<form method="post" action="/contact" novalidate>
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <input type="hidden" name="about" value="{{ values.about }}">
+  {{ input('name', _('Your name (optional)'), values.name, errors=errors, autocomplete='name') }}
+  {{ input('email', _('Email for a reply (optional)'), values.email, type='email', errors=errors, autocomplete='email') }}
+  <div class="field{% if errors.message %} has-error{% endif %}">
+    <label for="f-message">{{ _("Message") }} <span aria-hidden="true">*</span></label>
+    <textarea id="f-message" name="message" rows="8" dir="auto" required {% if errors.message %}aria-invalid="true" aria-describedby="e-message"{% endif %}>{{ values.message }}</textarea>
+    {% if errors.message %}<div class="error-text" id="e-message">{{ _(errors.message) }}</div>{% endif %}
+  </div>
+  <div class="hp" aria-hidden="true"><label for="f-website">{{ _("Leave this empty") }}</label><input id="f-website" name="website" tabindex="-1" autocomplete="off"></div>
+  <p class="small muted">{{ _("Please do not include private details about living people unless they have agreed.") }}</p>
+  <button class="btn" type="submit">{{ _("Send message") }}</button>
+</form>
+{% if contact_email %}<p class="small">{{ _("You can also write to") }} <a href="mailto:{{ contact_email }}" dir="ltr">{{ contact_email }}</a>.</p>{% endif %}
+{% endblock %}

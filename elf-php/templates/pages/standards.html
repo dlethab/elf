@@ -1,0 +1,21 @@
+{% extends "pages/_info.html" %}
+{% block body %}
+<p class="lede">{{ _("These standards govern how information enters the archive and how it is presented.") }}</p>
+<h2>{{ _("Nothing is invented") }}</h2>
+<p>{{ _("The archive never fills gaps with guesses. Unknown dates, places and relationships are shown as “Unknown” or “Not yet documented”. An approximate date is shown as approximate (“c. 1962”), a decade as a decade, and a range as a range. Places are placed on the map only with documented coordinates, and approximate locations are marked as approximate.") }}</p>
+<h2>{{ _("Evidence categories") }}</h2>
+<p>{{ _("Each citation records what kind of support it gives:") }}</p>
+<dl class="meta">{% for key, v in EVIDENCE %}<dt>{{ _(v[0]) }}</dt><dd>{{ _(v[1]) }}</dd>{% endfor %}</dl>
+<h2>{{ _("Claim-level citations") }}</h2>
+<p>{{ _("A source supports specific claims, not a whole page. A birth year, an organizational affiliation and participation in an event may each need a different source, and the archive records them separately.") }}</p>
+<h2>{{ _("Differing accounts") }}</h2>
+<p>{{ _("When credible accounts disagree, the archive preserves each account with its source or witness and explains the disagreement, instead of silently choosing one version.") }}</p>
+<h2>{{ _("Living people") }}</h2>
+<p>{{ _("Records of people recorded as living are kept private by default and published only when an editor confirms consent. Their relationships and affiliations are private too.") }}</p>
+<h2>{{ _("Names and spellings") }}</h2>
+<p>{{ _("Names are stored exactly as entered, in their original script where available. Alternative spellings and transliterations are kept alongside. Two names are treated as the same person only on evidence and editorial review, never because they look alike.") }}</p>
+<h2>{{ _("Photographs, documents and testimony") }}</h2>
+<p>{{ _("Uploading an item does not make the uploader its creator or rights holder. Items are shown publicly only when their rights allow it. Oral histories are published only as far as the interviewee has agreed, use by use.") }}</p>
+<h2>{{ _("Revisions") }}</h2>
+<p>{{ _("Every change to a published record is kept in its change history, which is shown on the record page. Earlier versions are never erased.") }}</p>
+{% endblock %}

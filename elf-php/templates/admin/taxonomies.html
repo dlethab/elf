@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Categories{% endblock %}
+{% block content %}
+<h1>Place and event categories</h1>
+{% include "admin/_nav.html" %}
+<p class="muted">Categories can be added or retired. Retired categories stay on existing records but cannot be chosen for new ones.</p>
+<div class="two-col">
+{% for _t8 in [['place', place, 'Place types'], ['event', event, 'Event types']] %}{% set which = _t8[0] %}{% set rows = _t8[1] %}{% set heading = _t8[2] %}
+<section><h2>{{ heading }}</h2>
+  <ul class="plain-list">{% for r in rows %}<li>{{ r.label }} {% if not r.is_active %}<span class="badge">Retired</span>{% endif %}
+    <form method="post" action="/admin/taxonomies" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="which" value="{{ which }}"><input type="hidden" name="op" value="toggle"><input type="hidden" name="id" value="{{ r.id }}"><button class="linkish small" type="submit">{{ (not r.is_active ? 'Restore' : 'Retire') }}</button></form></li>{% endfor %}</ul>
+  <form method="post" action="/admin/taxonomies" class="row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="which" value="{{ which }}">
+    <label for="nl-{{ which }}" class="sr-only">New {{ which }} type</label><input id="nl-{{ which }}" name="label" type="text" placeholder="New {{ which }} type"><button class="btn btn-small btn-secondary" type="submit">Add</button></form>
+</section>
+{% endfor %}
+</div>
+{% endblock %}

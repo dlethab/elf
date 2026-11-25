@@ -1,0 +1,9 @@
+﻿# Runtime
+Flask>=3.1,<3.2
+Werkzeug>=3.1,<3.2
+# Photo uploads: content-based type checks, resizing, metadata removal
+Pillow>=11
+# Two-step sign-in: QR code for authenticator apps (rendered as inline SVG; nothing is sent elsewhere)
+qrcode>=8,<9
+# Production WSGI server (install on the server; not needed for development)
+# gunicorn>=23

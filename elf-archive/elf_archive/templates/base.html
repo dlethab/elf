@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="{{ lang }}" dir="{{ lang_dir }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}{{ _(site_name) }}{% endblock %}{% if self.title() != _(site_name) %} · {{ _(site_name) }}{% endif %}</title>
+  {% block meta %}<meta name="description" content="{{ _("A searchable, connected archive of people, families, places, events and sources associated with the Eritrean Liberation Front and Eritrea's independence struggle.") }}">{% endblock %}
+  {% block robots %}{% endblock %}
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/archive.css') }}">
+  <script src="{{ url_for('static', filename='js/site.js') }}" defer></script>
+</head>
+<body{% block body_attrs %}{% endblock %}>
+<a class="skip" href="#main">{{ _("Skip to content") }}</a>
+{% if not g.get('embed') %}{# shown inside another site (the map and timeline only): no site header or footer #}
+<header class="site-header">
+  <div class="container header-top">
+    <a class="brand" href="/">{{ _("ELF Digital Historical Archive") }}<small>{{ _("People · Families · Places · Events · Sources") }}</small></a>
+    <nav class="lang-nav" aria-label="{{ _('Language') }}">
+      <ul class="nav">
+      {% for code, l in languages.items() %}
+        <li><a href="/language/{{ code }}?next={{ request.full_path.rstrip('?')|urlencode }}" lang="{{ code }}" hreflang="{{ code }}" dir="{{ l.dir }}"
+               {% if code == lang %}aria-current="true"{% endif %}>{{ l.name }}</a></li>
+      {% endfor %}
+      </ul>
+    </nav>
+    <nav class="account-nav" aria-label="{{ _('Account') }}">
+      <ul class="nav">
+      {% if current_user %}
+        <li><a href="/dashboard">{{ _("Dashboard") }}{% if unread_notifications %} ({{ _("{n} new", n=unread_notifications) }}){% endif %}</a></li>
+        {% if can('queue.view') %}<li><a href="/editor">{{ _("Editorial") }}</a></li>{% endif %}
+        {% if can('forum.moderate') %}<li><a href="/moderation">{{ _("Moderation") }}</a></li>{% endif %}
+        {% if can('admin.overview') %}<li><a href="/admin">{{ _("Admin") }}</a></li>{% endif %}
+        <li><form method="post" action="/auth/logout" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="linkish" type="submit">{{ _("Sign out") }}</button></form></li>
+      {% else %}
+        <li><a href="/auth/login">{{ _("Sign in") }}</a></li>
+        <li><a href="/auth/register">{{ _("Register") }}</a></li>
+      {% endif %}
+      </ul>
+    </nav>
+    <button class="nav-toggle" id="nav-toggle" aria-expanded="false" aria-controls="nav-wrap">{{ _("Menu") }}</button>
+  </div>
+  <div class="container header-bottom">
+    <nav class="nav-wrap" id="nav-wrap" aria-label="{{ _('Main') }}">
+      <ul class="nav">
+        {% set here = request.path %}
+        {% for href, label in [('/', _('Home')), ('/people', _('People')), ('/map', _('Historical Map')), ('/timeline', _('Timeline')),
+                               ('/families', _('Families')), ('/archive', _('Digital Archive')), ('/oral-histories', _('Oral Histories')),
+                               ('/community', _('Community')), ('/about', _('About'))] %}
+        <li><a href="{{ href }}" {% if (href == '/' and here == '/') or (href != '/' and here.startswith(href)) %}aria-current="page"{% endif %}>{{ label }}</a></li>
+        {% endfor %}
+      </ul>
+    </nav>
+    <form class="header-search" role="search" action="/search" method="get">
+      <label class="sr-only" for="site-q">{{ _("Search the archive") }}</label>
+      <input id="site-q" type="search" name="q" placeholder="{{ _('Search people, places, families, events, names…') }}" value="{{ request.args.get('q', '') if request.path == '/search' else '' }}">
+      <button class="btn btn-small" type="submit">{{ _("Search") }}</button>
+    </form>
+  </div>
+</header>
+{% endif %}
+<main id="main" tabindex="-1" {% if english_only and lang != 'en' %}lang="en" dir="ltr"{% endif %}>
+  <div class="container">
+    {% if lang != 'en' and (english_only or translation_draft) %}
+      <div class="notice notice--info lang-note" {% if english_only %}lang="{{ lang }}" dir="{{ lang_dir }}"{% endif %}><p>
+        {% if english_only %}{{ _("This page is currently available in English only.") }} {% endif %}
+        {% if translation_draft %}{{ _("This translation of the interface is a draft that is still being reviewed by native speakers. Historical records are shown in the language in which they were recorded.") }}{% endif %}</p></div>
+    {% endif %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}<div class="notice notice--{{ cat }}" role="status"><p>{{ _(msg) }}</p></div>{% endfor %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </div>
+  {% block stage %}{% endblock %}{# full-width area (the atlas); pages put their own .container inside when needed #}
+  {% block after_stage %}{% endblock %}
+</main>
+{% if not g.get('embed') %}
+<footer class="site-footer">
+  <div class="container">
+    <h2 class="sr-only">{{ _("Site information") }}</h2>
+    <ul>
+      <li><a href="/about">{{ _("About the project") }}</a></li>
+      <li><a href="/standards">{{ _("Historical and editorial standards") }}</a></li>
+      <li><a href="/how-to-contribute">{{ _("How to contribute") }}</a></li>
+      <li><a href="/corrections">{{ _("How to submit corrections") }}</a></li>
+      <li><a href="/privacy">{{ _("Privacy policy") }}</a></li>
+      <li><a href="/terms">{{ _("Terms of use") }}</a></li>
+      <li><a href="/copyright">{{ _("Copyright and permissions") }}</a></li>
+      <li><a href="/accessibility">{{ _("Accessibility statement") }}</a></li>
+      <li><a href="/contact">{{ _("Contact") }}</a></li>
+      <li><a href="/data-policy">{{ _("Data and licensing policy") }}</a></li>
+    </ul>
+    <p class="muted small">{{ _("Records are published only after editorial review. Unknown information is shown as unknown, never guessed.") }}</p>
+  </div>
+</footer>
+{% endif %}
+</body>
+</html>

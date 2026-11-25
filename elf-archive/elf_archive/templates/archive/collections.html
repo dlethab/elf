@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, empty, fictional_badge, tile %}
+{% block title %}{{ _("Collections") }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/archive', _('Digital Archive')), ('/collections', _('Collections'))]) }}
+<h1>{{ _("Collections") }}</h1>
+<p class="lede">{{ _("Groups of photographs, documents and recordings brought together by the archive's editors: a family's papers, a town, a period, or an interview series.") }}</p>
+{% if rows %}
+<ul class="grid">
+  {% for c in rows %}
+  <li class="card"><a class="card-link" href="{{ record_url('collection', c.row.slug) }}">
+    <span class="gallery">{{ tile(c.cover) }}</span>
+    <h3 dir="auto">{{ c.row.title }}</h3>{{ fictional_badge(c.row.is_fictional_test) }}
+    <p class="small muted">{{ _("1 item") if c.count == 1 else _("{n} items", n=c.count) }}{% if c.row.is_featured %} · {{ _("Featured") }}{% endif %}</p>
+    {% if c.row.description %}<p class="small" dir="auto">{{ c.row.description|truncate(180) }}</p>{% endif %}</a></li>
+  {% endfor %}
+</ul>
+{% else %}{{ empty(_("No collections have been published yet.")) }}{% endif %}
+{% endblock %}

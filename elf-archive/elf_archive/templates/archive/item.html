@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, citations_block, record_footer, media_player %}
+{% block title %}{{ item.title }}{% endblock %}
+{% block meta %}<meta name="description" content="{{ (item.description or item.title)[:160] }}">
+<link rel="canonical" href="{{ base_url }}{{ record_url('archive_item', e.slug) }}">
+<meta property="og:title" content="{{ item.title }}">{% if item.display_key and not research %}<meta property="og:image" content="{{ base_url }}{{ media_url(item.display_key) }}">{% endif %}{% endblock %}
+{% block robots %}{% if e.is_fictional_test or research %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/archive', _('Digital Archive')), (request.path, item.title)]) }}
+{% if research %}<div class="notice"><p><strong>{{ _("Restricted material: research access.") }}</strong> {{ _("This item is not public. You can see it because you have researcher access. This view has been logged. Do not copy or share it without permission.") }}</p></div>{% endif %}
+{% with kicker=item_type_label(item.item_type), title=item.title, original=None %}{% include "records/_head.html" %}{% endwith %}
+<div class="two-col">
+  <div>
+    {% if item.media_kind == 'image' and item.display_key %}
+    <figure class="photo">
+      <img src="{{ media_url(item.display_key) }}" alt="{{ item.title }}" {% if item.w %}width="{{ item.w }}" height="{{ item.h }}"{% endif %}>
+      {% if item.description %}<figcaption dir="auto">{{ item.description }}</figcaption>{% endif %}
+    </figure>
+    {% elif item.media_kind in ('audio', 'video', 'document') %}
+      {{ media_player(item.media_kind, item.display_key or item.original_key, item.title, item.original_size) }}
+      {% if item.description %}<p class="prose" dir="auto">{{ item.description }}</p>{% endif %}
+    {% endif %}
+    <dl class="meta">
+      <dt>{{ _("Date") }}</dt><dd>{{ fdate(item.created_start, item.created_end, item.created_precision) }}{% if item.created_precision not in ('unknown', 'exact') %} <span class="small muted">({{ precision_note(item.created_precision) }})</span>{% endif %}</dd>
+      <dt>{{ _("Photographer or creator") }}</dt><dd dir="auto">{{ item.creator or _("Unknown") }}</dd>
+      <dt>{{ _("Rights") }}</dt><dd>{{ rights_label(item.rights_status) }}{% if item.rights_holder %} · <span dir="auto">{{ item.rights_holder }}</span>{% endif %}</dd>
+      {% if credit %}<dt>{{ _("Contributed by") }}</dt><dd dir="auto">{{ credit }}</dd>{% endif %}
+      <dt>{{ _("Provenance") }}</dt><dd>{{ _(item.provenance) if item.provenance else _("Not documented") }}</dd>
+    </dl>
+    {% if item.media_kind == 'image' %}<p class="small muted">{{ _("The copy shown here has been resized, and any location or camera data embedded in the original file has been removed. The original is preserved by the archive.") }}</p>
+    {% elif item.media_kind == 'document' %}<p class="small muted">{{ _("Documents are offered as downloads. Check their rights before reusing them.") }}</p>{% endif %}
+    {% if item.transcript %}
+    <section aria-labelledby="tr-h">
+      <h2 id="tr-h">{{ _("Transcript") }}</h2>
+      {% if not item.transcript_reviewed %}<p class="small muted">{{ _("Transcript supplied by the contributor. It has not been checked against the recording.") }}</p>{% endif %}
+      <div class="prose transcript" dir="auto">{{ item.transcript }}</div>
+    </section>
+    {% elif item.media_kind in ('audio', 'video') %}<p class="small muted">{{ _("No transcript is available for this recording yet.") }}</p>{% endif %}
+    <section aria-labelledby="rel-h">
+      <h2 id="rel-h">{{ _("Related records") }}</h2>
+      {% if subjects %}<ul class="plain-list">{% for s in subjects %}<li>{{ kind_label(s.kind) }}: <a href="{{ s.url }}" dir="auto">{{ s.title }}</a></li>{% endfor %}</ul>
+      {% else %}<p class="muted">{{ _("No public records are linked to this item.") }}</p>{% endif %}
+    </section>
+    {{ citations_block(cites) }}
+  </div>
+  <aside>{{ record_footer(e, revisions) }}
+    <div class="aside-box"><h2>{{ _("Using this item") }}</h2><p class="small">{{ _("Being shown here does not mean the item is free to reuse. Check its rights, and contact the archive before publishing it elsewhere.") }}</p></div>
+  </aside>
+</div>
+{% endblock %}

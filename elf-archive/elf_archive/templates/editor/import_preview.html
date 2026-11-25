@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs %}
+{% block title %}Import preview #{{ imp.id }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/editor', 'Editorial'), ('/editor/import', 'Import'), (request.path, 'Preview #' ~ imp.id)]) }}
+<h1>Import preview: {{ imp.filename or 'CSV file' }}</h1>
+<p>{{ kind_label(imp.kind) }} · <strong>{{ imp.valid_rows }}</strong> of {{ imp.total_rows }} rows are valid · status: {{ imp.status }}</p>
+{% if imp.status == 'preview' %}
+<div class="notice notice--info"><p>Nothing has been created yet. Confirming creates one submission per valid row in the review queue. Rows with errors are skipped; fix them in the file and import them separately.</p></div>
+{% if imp.created_by == current_user.id %}
+<form method="post" class="row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn" type="submit" name="op" value="confirm" {% if not imp.valid_rows %}disabled{% endif %}>Create {{ imp.valid_rows }} submissions for review</button>
+  <button class="btn btn-secondary" type="submit" name="op" value="discard">Discard this import</button></form>
+{% endif %}
+{% endif %}
+{% if rows %}
+<div class="table-wrap"><table><caption class="sr-only">Rows</caption>
+  <thead><tr><th scope="col">Line</th><th scope="col">Result</th><th scope="col">Values</th><th scope="col">Problems and warnings</th></tr></thead>
+  <tbody>{% for r in rows %}<tr>
+    <td>{{ r.line }}</td>
+    <td>{% if r.errors %}<span class="badge badge--rejected">✕ Error</span>{% elif r.warnings %}<span class="badge badge--under_review">⚑ Check</span>{% else %}<span class="badge badge--published">✓ OK</span>{% endif %}</td>
+    <td class="small"><dl class="meta">{% for k, v in r.form.items() %}<dt>{{ k }}</dt><dd dir="auto">{{ v|truncate(160) }}</dd>{% endfor %}</dl></td>
+    <td class="small">{% for f, msg in r.errors.items() %}<div class="error-text">{{ f }}: {{ msg }}</div>{% endfor %}{% for w in r.warnings %}<div class="flag">{{ w }}</div>{% endfor %}</td>
+  </tr>{% endfor %}</tbody></table></div>
+{% endif %}
+{% endblock %}

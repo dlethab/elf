@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% from "_macros.html" import status_badge, empty %}
+{% block title %}{{ _("Dashboard") }}{% endblock %}
+{% block content %}
+<h1 dir="auto">{{ _("Welcome, {name}", name=current_user.display_name) }}</h1>
+{% include "dashboard/_nav.html" %}
+
+{% if not current_user.email_verified %}
+<div class="notice"><p><strong>{{ _("Please verify your email address.") }}</strong> {{ _("You can save drafts now, but you need a verified address to submit them for review.") }}</p>
+  <form method="post" action="/auth/resend-verification" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+  <button class="btn btn-small btn-secondary" type="submit">{{ _("Send a new verification link") }}</button></form>
+  {% if is_dev %}<p class="small" lang="en" dir="ltr">Development: queued emails are shown at <a href="/dev/outbox">/dev/outbox</a>.</p>{% endif %}</div>
+{% endif %}
+
+{% if notes %}<section aria-labelledby="n-h"><h2 id="n-h">{{ _("New updates") }}</h2>
+  <ul class="plain-list">{% for n in notes %}<li><a href="{{ n.link }}">{{ _(n.message) }}</a> <span class="small muted" dir="ltr">{{ n.created_at[:10] }}</span></li>{% endfor %}</ul>
+  <p><a href="/dashboard/notifications">{{ _("All notifications") }}</a></p></section>{% endif %}
+
+<section aria-labelledby="c-h">
+  <h2 id="c-h">{{ _("Contribute") }}</h2>
+  <p>{{ _("Everything you submit is reviewed by an editor before publication.") }}</p>
+  <ul class="row plain-list-inline">{% for k in new_kinds %}<li><a class="btn btn-secondary" href="/contribute/{{ k }}">{{ _("New record: {kind}", kind=kind_label(k)) }}</a></li>{% endfor %}</ul>
+  <h3>{{ _("Connect existing records") }}</h3>
+  <ul class="row plain-list-inline">
+    <li><a class="btn btn-secondary" href="/contribute/affiliation">{{ _("A person's affiliation with an organization") }}</a></li>
+    <li><a class="btn btn-secondary" href="/contribute/participation">{{ _("A participant in an event") }}</a></li>
+    <li><a class="btn btn-secondary" href="/contribute/oral_history">{{ _("An oral history interview") }}</a></li>
+    {% if (can('record.view_any') ?: fams|filter(v => v.can_propose_tree)) %}<li><a class="btn btn-secondary" href="/contribute/membership">{{ _("A member of a family") }}</a></li>{% endif %}
+  </ul>
+  <p class="small muted">{{ _("To correct an existing record or add a photo of it, open it and choose “Suggest a correction or add a photo”.") }}</p>
+</section>
+
+<section aria-labelledby="s-h">
+  <h2 id="s-h">{{ _("Your submissions") }}</h2>
+  {% if counts %}
+  <ul class="row plain-list-inline">
+    {% for st in ['draft', 'submitted', 'under_review', 'needs_revision', 'approved', 'published', 'rejected', 'withdrawn'] %}{% if counts[st] %}
+    <li><a href="/dashboard/submissions?status={{ st }}">{{ status_badge(st) }} {{ counts[st] }}</a></li>{% endif %}{% endfor %}
+  </ul>
+  <div class="table-wrap"><table><caption class="sr-only">{{ _("Your submissions") }}</caption>
+    <thead><tr><th scope="col">{{ _("Submission") }}</th><th scope="col">{{ _("Type") }}</th><th scope="col">{{ _("Status") }}</th><th scope="col">{{ _("Updated") }}</th></tr></thead>
+    <tbody>{% for _t14 in recent %}{% set s = _t14[0] %}{% set t = _t14[1] %}<tr><td><a href="/dashboard/submissions/{{ s.id }}" dir="auto">{{ t }}</a></td><td>{{ kind_label(s.kind) }}</td><td>{{ status_badge(s.status) }}</td><td dir="ltr">{{ s.updated_at[:10] }}</td></tr>{% endfor %}</tbody></table></div>
+  <p><a href="/dashboard/submissions">{{ _("All submissions") }}</a></p>
+  {% else %}{{ empty(_("You have not made any submissions yet.")) }}{% endif %}
+</section>
+
+{% if fams %}<section aria-labelledby="f-h">
+  <h2 id="f-h">{{ _("Families you help maintain") }}</h2>
+  <ul class="plain-list">{% for f in fams %}<li><a href="{{ record_url('family', f.slug) }}" dir="auto">{{ f.display_name }}</a>
+    {% if f.can_propose_tree %} · <a href="/contribute/relationship?family={{ f.public_id }}">{{ _("Propose a relationship") }}</a> · <a href="/contribute/membership?family={{ f.public_id }}">{{ _("Add a family member") }}</a>{% endif %}
+    {% if f.can_suggest_edits %} · <a href="/contribute/correction/{{ f.public_id }}">{{ _("Suggest an edit") }}</a>{% endif %}</li>{% endfor %}</ul>
+  <p class="small muted">{{ _("Your proposals for these families go through editorial review like any other contribution.") }}</p>
+</section>{% endif %}
+{% endblock %}

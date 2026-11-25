@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs %}
+{% block title %}Exploration: {{ x.title }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/editor', 'Editorial'), ('/editor/explorations', 'Curated explorations'), (request.path, x.title)]) }}
+<h1 dir="auto">{{ x.title }}</h1>
+{% include "editor/_nav.html" %}
+<p>{% if x.is_published %}Published: <a href="/explore/curated/{{ x.slug }}">/explore/curated/{{ x.slug }}</a>{% else %}Draft: not visible to visitors.{% endif %}</p>
+{% if shown is defined %}<p class="small muted">{{ shown|length }} of its records are public now and shown to visitors.</p>{% endif %}
+{% include "editor/_exploration_form.html" %}
+<form method="post" class="stack">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="op" value="delete">
+  <button class="btn btn-secondary" type="submit" data-confirm="Delete this exploration? The records themselves are not affected.">Delete exploration</button>
+</form>
+{% endblock %}

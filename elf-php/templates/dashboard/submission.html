@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, status_badge, errors_summary %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/dashboard', _('Dashboard')], ['/dashboard/submissions', _('My submissions')], [request.path, title]]) }}
+<h1 dir="auto">{{ title }}</h1>
+<p>{{ kind_label(s.kind) }} · {{ status_badge(s.status) }} <span class="small muted">· {{ _("created {date}", date=s.created_at[:10]) }}{% if s.submitted_at %} · {{ _("submitted {date}", date=s.submitted_at[:10]) }}{% endif %}</span></p>
+
+{% if s.status == 'needs_revision' %}<div class="notice"><p><strong>{{ _("An editor has asked for changes.") }}</strong></p>{% if s.decision_reason %}<p class="prose" dir="auto">{{ s.decision_reason }}</p>{% endif %}<p>{{ _("Edit the submission and submit it again.") }}</p></div>
+{% elseif s.status == 'rejected' %}<div class="notice notice--error"><p><strong>{{ _("This submission was not accepted.") }}</strong></p>{% if s.decision_reason %}<p class="prose" dir="auto">{{ s.decision_reason }}</p>{% endif %}</div>
+{% elseif s.status == 'published' %}<div class="notice notice--ok"><p>{{ _("This submission has been published.") }}
+  {% if published %} <a href="/id/{{ published.public_id }}">{{ _("View the record") }}</a>{% if published.visibility != 'public' %} ({{ _("currently restricted, so it is not publicly visible") }}){% endif %}.{% endif %}</p></div>
+{% elseif s.status in ['submitted', 'under_review', 'approved'] %}<div class="notice notice--info"><p>{{ _("Awaiting editorial review. It is not public.") }}</p></div>
+{% elseif s.status == 'draft' %}<div class="notice notice--info"><p>{{ _("This is a draft. Only you can see it.") }}</p></div>{% endif %}
+
+{% if target is defined and target %}<p>{{ _("Correction to") }} <a href="/id/{{ target.public_id }}" dir="ltr">{{ target.public_id }}</a>.</p>{% endif %}
+
+<section aria-labelledby="p-h"><h2 id="p-h">{{ _("What you proposed") }}</h2>{% include "dashboard/_proposal.html" %}</section>
+
+{% if possible_existing %}
+<section aria-labelledby="d-h" class="aside-box"><h2 id="d-h">{{ _("Possibly already in the archive") }}</h2>
+  <p class="small">{{ _("These published records have similar names. If one is the same person, consider suggesting a correction to it instead. Similar names alone do not mean it is the same person.") }}</p>
+  <ul class="plain-list">{% for c in possible_existing %}<li><a href="{{ record_url('person', c.slug) }}" dir="auto">{{ c.name }}</a> <span class="small muted">({{ _(c.why) }})</span></li>{% endfor %}</ul>
+</section>{% endif %}
+
+{% if takes_photos %}
+<section aria-labelledby="ph-h" id="photos">
+  <h2 id="ph-h">{{ _("Photos, documents and recordings") }}{% if photos %} ({{ photos|length }}){% endif %}</h2>
+  {% if photos %}
+  <ul class="photo-list">
+    {% for p in photos %}
+    <li class="card">
+      {% if p.thumb_key %}<a href="{{ media_url(p.display_key) }}"><img src="{{ media_url(p.thumb_key) }}" alt="{{ p.caption }}" loading="lazy"></a>
+      {% else %}<a href="{{ media_url((p.display_key ?: p.original_key)) }}"><span class="tile tile--{{ p.media_kind }}"><span class="tile__icon" aria-hidden="true">{{ ({'document': '▤', 'audio': '♪', 'video': '▶'}[p.media_kind] ?? '▣') }}</span>{{ item_type_label(p.item_type) }}</span></a>{% endif %}
+      <div>
+        <p dir="auto"><strong>{{ p.caption }}</strong></p>
+        <dl class="meta small">
+          {% if p.creator_text %}<dt>{{ _("Photographer") }}</dt><dd dir="auto">{{ p.creator_text }}</dd>{% endif %}
+          {% if p.taken_precision != 'unknown' %}<dt>{{ _("Date taken") }}</dt><dd>{{ fdate(p.taken_start, p.taken_end, p.taken_precision) }}</dd>{% endif %}
+          <dt>{{ _("Rights") }}</dt><dd>{{ rights_label(p.rights_status) }}{% if p.rights_holder %} · <span dir="auto">{{ p.rights_holder }}</span>{% endif %}</dd>
+          {% if s.status == 'published' %}<dt>{{ _("Outcome") }}</dt><dd>
+            {% if p.result_item_id %}{{ _("Added to the archive") }} ({{ (p.item_visibility == 'public' ? _("public") : _("restricted, not publicly visible")) }})
+            {% else %}{{ _("Not included in the archive") }}{% endif %}</dd>{% endif %}
+        </dl>
+        {% if can_add_photos %}
+        <form method="post" action="/dashboard/submissions/{{ s.id }}/photos/{{ p.id }}/remove" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <button class="linkish" type="submit" data-confirm="{{ _('Remove this photo?') }}">{{ _("Remove") }}</button></form>
+        {% endif %}
+      </div>
+    </li>
+    {% endfor %}
+  </ul>
+  {% elseif not can_add_photos %}<p class="muted">{{ _("No photos were attached.") }}</p>{% endif %}
+
+  {% if can_add_photos %}
+    {% if photos|length < max_photos %}
+    <h3>{{ _("Add a photo, document or recording") }}</h3>
+    <p class="small">{{ _("Photos are seen only by you and the editors. An editor decides whether each one is added to the archive and whether it can be shown publicly.") }}</p>
+    {{ errors_summary(photo_errors) }}
+    <form method="post" action="/dashboard/submissions/{{ s.id }}/photos" enctype="multipart/form-data" class="upload-form" data-upload novalidate
+      data-too-large="{{ _('This photo is too large. Reduce its size and try again.') }}" data-failed="{{ _('The upload failed. Check your connection and try again.') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      {% set pv = photo_values %}{% set pe = photo_errors %}
+      <div class="field{% if pe.photo %} has-error{% endif %}"><label for="f-photo">{{ _("File") }} <span aria-hidden="true">*</span></label>
+        <input id="f-photo" name="photo" type="file" accept="image/jpeg,image/png,image/webp,application/pdf,audio/*,video/mp4,video/webm,.mp3,.m4a,.ogg,.wav,.flac,.mp4,.webm" required aria-describedby="h-photo{% if pe.photo %} e-photo{% endif %}">
+        <div class="help" id="h-photo">{{ _("Photos and scans: JPEG, PNG or WebP, up to {mb} MB.", mb=max_photo_mb) }} {{ _("Documents: PDF, up to {mb} MB.", mb=max_doc_mb) }} {{ _("Recordings: MP3, M4A, OGG, WAV, MP4 or WebM, up to {mb} MB.", mb=max_av_mb) }}
+          {{ _("Location data stored inside the photo is removed from every copy shown on the site.") }}</div>
+        {% if pe.photo %}<div class="error-text" id="e-photo">{{ _(pe.photo) }}</div>{% endif %}</div>
+      {% for _t16 in [
+          ['caption', _('What does the photo show?'), _('For example: who or what is in it, where, and the occasion, as far as you know.'), true, true],
+          ['creator_text', _('Photographer, if known'), _('The person who took the photo, which may not be you.'), false, false],
+          ['taken', _('When was it taken?'), _('Examples: 1952, 1952-03, 1952-03-14, c. 1952, 1950s, 1950 to 1955. Leave blank if unknown.'), false, false],
+          ['place_note', _('Where was it taken, if known?'), '', false, false],
+          ['people_note', _('People you can identify in the photo'), _('Only the editors see this. Identifications are checked before anything is published.'), false, true],
+          ['rights_holder', _('Who holds the rights to this photo?'), _('If you took the photo yourself, enter your own name.'), false, false]] %}{% set name = _t16[0] %}{% set label = _t16[1] %}{% set help = _t16[2] %}{% set required = _t16[3] %}{% set area = _t16[4] %}
+      <div class="field{% if pe[name] %} has-error{% endif %}"><label for="f-{{ name }}">{{ label }}{% if required %} <span aria-hidden="true">*</span>{% endif %}</label>
+        {% if area %}<textarea id="f-{{ name }}" name="{{ name }}" rows="3" dir="auto" {% if required %}required{% endif %} {% if help %}aria-describedby="h-{{ name }}"{% endif %}>{{ (pv[name] ?? '') }}</textarea>
+        {% else %}<input id="f-{{ name }}" name="{{ name }}" type="text" value="{{ (pv[name] ?? '') }}" {% if name == 'taken' %}dir="ltr"{% else %}dir="auto"{% endif %} {% if help %}aria-describedby="h-{{ name }}"{% endif %}>{% endif %}
+        {% if help %}<div class="help" id="h-{{ name }}">{{ help }}</div>{% endif %}
+        {% if pe[name] %}<div class="error-text">{{ _(pe[name]) }}</div>{% endif %}</div>
+      {% endfor %}
+      <div class="field{% if pe.item_type %} has-error{% endif %}"><label for="f-item_type">{{ _("What kind of item is it?") }}</label>
+        <select id="f-item_type" name="item_type"><option value="">{{ _("Decide from the file") }}</option>
+          {% for t in ITEM_TYPES %}<option value="{{ t }}" {% if pv.item_type == t %}selected{% endif %}>{{ item_type_label(t) }}</option>{% endfor %}</select>
+        {% if pe.item_type %}<div class="error-text">{{ _(pe.item_type) }}</div>{% endif %}</div>
+      <div class="field"><label for="f-transcript">{{ _("Transcript or text, if you have one") }}</label>
+        <textarea id="f-transcript" name="transcript" rows="4" dir="auto" aria-describedby="h-transcript">{{ (pv.transcript ?? '') }}</textarea>
+        <div class="help" id="h-transcript">{{ _("For recordings or letters. It will be marked as supplied by you and not yet checked.") }}</div></div>
+      <div class="field{% if pe.rights_status %} has-error{% endif %}"><label for="f-rights_status">{{ _("Rights status") }} <span aria-hidden="true">*</span></label>
+        <select id="f-rights_status" name="rights_status" required aria-describedby="h-rights_status">
+          <option value="">{{ _("Choose…") }}</option>
+          {% for r in rights_choices %}<option value="{{ r }}" {% if pv.rights_status == r %}selected{% endif %}>{{ rights_label(r) }}</option>{% endfor %}
+        </select>
+        <div class="help" id="h-rights_status">{{ _("If you took the photo yourself, choose “Copyrighted, and the rights holder has given permission”. If you are not sure, choose “Rights unknown”: the photo can still be preserved, but it will not be shown publicly until its rights are clear.") }}</div>
+        {% if pe.rights_status %}<div class="error-text">{{ _(pe.rights_status) }}</div>{% endif %}</div>
+      <div class="check{% if pe.rights_declared %} has-error{% endif %}"><input type="checkbox" id="f-rights_declared" name="rights_declared" value="1" {% if pv.rights_declared == '1' %}checked{% endif %}>
+        <label for="f-rights_declared">{{ _("I have the right to share this photo with the archive, or I have described its rights honestly above. I understand it will not be shown publicly unless an editor approves it.") }}</label></div>
+      {% if pe.rights_declared %}<div class="error-text">{{ _(pe.rights_declared) }}</div>{% endif %}
+      <div class="upload-progress" hidden><progress max="100" value="0"></progress> <span class="small" aria-live="polite"></span></div>
+      <div class="form-actions"><button class="btn" type="submit" data-uploading="{{ _('Uploading…') }}">{{ _("Upload") }}</button></div>
+    </form>
+    {% else %}<p class="muted">{{ _("This submission has the maximum number of photos.") }}</p>{% endif %}
+  {% endif %}
+</section>
+{% endif %}
+
+<div class="form-actions">
+  {% if s.status in ['draft', 'needs_revision'] %}
+    <a class="btn btn-secondary" href="/dashboard/submissions/{{ s.id }}/edit">{{ _("Edit") }}</a>
+    <form method="post" action="/dashboard/submissions/{{ s.id }}/submit" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn" type="submit">{{ _("Submit for review") }}</button></form>
+  {% endif %}
+  {% if s.status in ['draft', 'submitted', 'under_review', 'needs_revision'] %}
+    <form method="post" action="/dashboard/submissions/{{ s.id }}/withdraw" class="inline-form"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><button class="btn btn-secondary" type="submit" data-confirm="{{ _('Withdraw this submission? This cannot be undone.') }}">{{ _("Withdraw") }}</button></form>
+  {% endif %}
+</div>
+
+<section aria-labelledby="h-h"><h2 id="h-h">{{ _("History") }}</h2>
+  <ol class="plain-list">{% for ev in events %}<li><span class="small muted" dir="ltr">{{ ev.created_at[:16]|replace({'T': ' '}) }}</span> — {{ status_label(ev.to_status)[0] }}{% if ev.message and ev.message != 'Draft created' %}: <span class="prose" dir="auto">{{ ev.message }}</span>{% endif %}</li>{% endfor %}</ol>
+</section>
+{% endblock %}

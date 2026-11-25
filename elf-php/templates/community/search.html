@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, empty %}
+{% block title %}{{ _("Search the forum") }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/community', _('Community')], [request.path, _('Search the forum')]]) }}
+<h1>{{ _("Search the forum") }}</h1>
+<form method="get" class="row" role="search"><label for="cq" class="sr-only">{{ _("Search the forum") }}</label>
+  <input id="cq" type="search" name="q" value="{{ q }}" dir="auto"><button class="btn btn-small" type="submit">{{ _("Search") }}</button></form>
+{% if rows is not none %}
+  {% if rows %}<ul class="plain-list">{% for t in rows %}<li><a href="/community/topics/{{ t.slug }}" dir="auto">{{ t.title }}</a> <span class="small muted">· {{ _(t.category_title) }} · {{ t.at[:10] }}</span></li>{% endfor %}</ul>
+  {% else %}{{ empty(_("No topics match.")) }}{% endif %}
+{% endif %}
+<p class="small muted">{{ _("To search the archive's records instead, use the search box at the top of the page.") }}</p>
+{% endblock %}

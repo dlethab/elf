@@ -1,0 +1,6 @@
+<nav aria-label="{{ _('Dashboard') }}"><ul class="tabs">
+  {% for href, label in [('/dashboard', _('Overview')), ('/dashboard/submissions', _('My submissions')), ('/dashboard/notifications', _('Notifications')),
+                         ('/dashboard/profile', _('Profile')), ('/dashboard/password', _('Password')), ('/dashboard/security', _('Two-step sign-in'))] %}
+  <li><a href="{{ href }}" {% if request.path == href %}aria-current="page"{% endif %}>{{ label }}</a></li>
+  {% endfor %}
+</ul></nav>

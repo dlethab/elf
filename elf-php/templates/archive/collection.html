@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs, empty, record_footer, citations_block, fictional_badge, tile %}
+{% block title %}{{ c.title }}{% endblock %}
+{% block meta %}<meta name="description" content="{{ ((c.description ?: c.title))[:160] }}">
+<link rel="canonical" href="{{ base_url }}{{ record_url('collection', e.slug) }}">{% endblock %}
+{% block robots %}{% if e.is_fictional_test %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
+{% block content %}
+{{ breadcrumbs([['/', _('Home')], ['/collections', _('Collections')], [request.path, c.title]]) }}
+{% with {kicker: _('Collection'), title: c.title, original: null} %}{% include "records/_head.html" %}{% endwith %}
+<div class="two-col">
+  <div>
+    {% if c.description %}<div class="prose lede" dir="auto">{{ c.description }}</div>{% endif %}
+    {% if c.rights_note %}<p class="small"><strong>{{ _("Rights") }}:</strong> <span dir="auto">{{ c.rights_note }}</span></p>{% endif %}
+    {% if items %}
+    <ul class="gallery gallery--large">
+      {% for r in items %}<li><a href="{{ record_url('archive_item', r.slug) }}">{{ tile(r) }}<span class="caption" dir="auto">{{ r.title }}</span></a>{{ fictional_badge(r.is_fictional_test) }}
+        <span class="small muted">{{ item_type_label(r.item_type) }}{% if r.created_precision != 'unknown' %} · {{ fdate(r.created_start, r.created_end, r.created_precision) }}{% endif %}</span></li>{% endfor %}
+    </ul>
+    {% else %}{{ empty(_("No items in this collection are public yet.")) }}{% endif %}
+    {{ citations_block(cites) }}
+  </div>
+  <aside>{{ record_footer(e, revisions) }}</aside>
+</div>
+{% endblock %}

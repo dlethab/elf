@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% from "_macros.html" import breadcrumbs %}
+{% block title %}{{ u.display_name }}{% endblock %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block content %}
+{{ breadcrumbs([('/', _('Home')), ('/community', _('Community')), (request.path, u.display_name)]) }}
+<h1 dir="auto">{{ u.display_name }}</h1>
+<p class="small muted">@{{ u.username }} · {{ _("member since {date}", date=u.created_at[:7]) }} · {{ _("1 post") if n_posts == 1 else _("{n} posts", n=n_posts) }}</p>
+{% if u.bio %}<p class="prose" dir="auto">{{ u.bio }}</p>{% endif %}
+<dl class="meta">{% if u.languages %}<dt>{{ _("Languages") }}</dt><dd dir="auto">{{ u.languages }}</dd>{% endif %}
+  {% if u.research_interests %}<dt>{{ _("Research interests") }}</dt><dd dir="auto">{{ u.research_interests }}</dd>{% endif %}</dl>
+<h2>{{ _("Topics started") }}</h2>
+{% if topics %}<ul class="plain-list">{% for t in topics %}<li><a href="/community/topics/{{ t.slug }}" dir="auto">{{ t.title }}</a> <span class="small muted">{{ t.created_at[:10] }}</span></li>{% endfor %}</ul>
+{% else %}<p class="muted">{{ _("None yet.") }}</p>{% endif %}
+{% endblock %}

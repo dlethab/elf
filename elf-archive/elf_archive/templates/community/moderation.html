@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}Moderation{% endblock %}
+{% block content %}
+<h1>Moderation</h1>
+<p class="lede">Reports from members, and every moderation action with its reason. Moderators see forum content only; they have no access to unpublished archive material.</p>
+<nav aria-label="Report status"><ul class="tabs">{% for s in ('open', 'escalated', 'actioned', 'dismissed') %}<li><a href="/moderation?status={{ s }}" {% if s == status %}aria-current="page"{% endif %}>{{ s|capitalize }} ({{ counts[s] }})</a></li>{% endfor %}</ul></nav>
+{% if reports %}
+{% for r in reports %}
+<article class="card report">
+  <p class="small"><strong>{{ report_categories[r.category] }}</strong> · reported by {{ r.reporter }} · {{ r.created_at[:16].replace('T', ' ') }}</p>
+  {% if r.reason %}<p class="small">“{{ r.reason }}”</p>{% endif %}
+  <p class="small">Topic: <a href="/community/topics/{{ r.topic_slug }}{% if r.post_id %}#post-{{ r.post_id }}{% endif %}">{{ r.topic_title }}</a> ({{ r.topic_status }})
+    {% if r.post_id %} · post by {{ r.post_author }} ({{ r.post_status }}){% endif %}</p>
+  {% if r.post_body %}<blockquote class="small prose" dir="auto">{{ r.post_body|truncate(600) }}</blockquote>{% endif %}
+  {% if r.resolution_note %}<p class="small muted">Resolution: {{ r.resolution_note }}</p>{% endif %}
+  <div class="row">
+    {% if r.post_id %}<form method="post" action="/moderation/posts/{{ r.post_id }}" class="row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="back" value="/moderation">
+      <label class="sr-only" for="pa-{{ r.id }}">Action on the post</label><select id="pa-{{ r.id }}" name="action"><option value="hide">Hide post</option><option value="remove">Remove post</option><option value="restore">Restore post</option></select>
+      <label class="sr-only" for="pr-{{ r.id }}">Reason</label><input id="pr-{{ r.id }}" name="reason" type="text" placeholder="Reason" required><button class="btn btn-small btn-secondary" type="submit">Apply</button></form>{% endif %}
+    {% if r.tid %}<form method="post" action="/moderation/topics/{{ r.tid }}" class="row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><input type="hidden" name="back" value="/moderation">
+      <label class="sr-only" for="ta-{{ r.id }}">Action on the topic</label><select id="ta-{{ r.id }}" name="action"><option value="lock">Lock topic</option><option value="hide">Hide topic</option><option value="restore">Restore topic</option></select>
+      <label class="sr-only" for="tr-{{ r.id }}">Reason</label><input id="tr-{{ r.id }}" name="reason" type="text" placeholder="Reason" required><button class="btn btn-small btn-secondary" type="submit">Apply</button></form>{% endif %}
+  </div>
+  {% if r.status in ('open', 'escalated') %}
+  <form method="post" action="/moderation/reports/{{ r.id }}" class="row"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <label class="sr-only" for="rs-{{ r.id }}">Close the report</label><select id="rs-{{ r.id }}" name="status"><option value="actioned">Actioned</option><option value="dismissed">Dismissed (no breach)</option>{% if r.status == 'open' %}<option value="escalated">Escalate to administrators</option>{% endif %}</select>
+    <label class="sr-only" for="rn-{{ r.id }}">Note</label><input id="rn-{{ r.id }}" name="note" type="text" placeholder="Note"><button class="btn btn-small" type="submit">Save</button></form>
+  {% endif %}
+</article>
+{% endfor %}
+{% else %}{{ empty("No reports in this list.") }}{% endif %}
+
+{% if restricted %}<h2>Members whose posting is paused</h2>
+<ul class="plain-list small">{% for u in restricted %}<li>{{ u.username }} until {{ u.forum_restricted_until[:16].replace('T', ' ') }}</li>{% endfor %}</ul>{% endif %}
+<h2>Moderation log</h2>
+{% if log %}<div class="table-wrap"><table><thead><tr><th scope="col">When</th><th scope="col">Moderator</th><th scope="col">Action</th><th scope="col">Target</th><th scope="col">Reason</th></tr></thead>
+  <tbody>{% for m in log %}<tr><td>{{ m.created_at[:16].replace('T', ' ') }}</td><td>{{ m.username }}</td><td>{{ m.action }}</td><td>{{ m.target_type }} #{{ m.target_id }}</td><td>{{ m.reason or '' }}</td></tr>{% endfor %}</tbody></table></div>
+{% else %}<p class="muted">No actions yet.</p>{% endif %}
+{% endblock %}

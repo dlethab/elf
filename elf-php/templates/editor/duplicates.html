@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% from "_macros.html" import empty %}
+{% block title %}Possible duplicates{% endblock %}
+{% block content %}
+<h1>Possible duplicates</h1>
+{% include "editor/_nav.html" %}
+<p class="lede">People whose names or spellings are the same or very similar (with matching birth years noted). This is a review aid, not evidence of identity: check sources, dates, family and places before merging.</p>
+{% if pairs %}
+<div class="table-wrap"><table><caption class="sr-only">Candidate pairs</caption>
+  <thead><tr><th scope="col">Record</th><th scope="col">Possible duplicate</th><th scope="col">Why</th><th scope="col">Score</th><th scope="col"><span class="sr-only">Action</span></th></tr></thead>
+  <tbody>{% for p in pairs %}<tr>
+    <td><a href="/editor/records/{{ p.a.public_id }}" dir="auto">{{ p.a.name }}</a> <span class="small muted">{{ p.a.public_id }}</span></td>
+    <td><a href="/editor/records/{{ p.b.public_id }}" dir="auto">{{ p.b.name }}</a> <span class="small muted">{{ p.b.public_id }}</span></td>
+    <td>{{ p.why }}</td><td>{{ p.score }}</td>
+    <td><a href="/editor/merge?keep={{ p.a.public_id }}&retire={{ p.b.public_id }}">Compare</a></td></tr>{% endfor %}</tbody></table></div>
+{% else %}{{ empty("No likely duplicates found.") }}{% endif %}
+<p class="small muted">To merge records of other kinds (families, places, events, organizations, sources), open one of them and use “Duplicate?”.</p>
+{% endblock %}
